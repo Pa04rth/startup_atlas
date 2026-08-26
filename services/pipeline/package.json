@@ -1,0 +1,17 @@
+{
+  "name": "services-pipeline",
+  "private": true,
+  "version": "0.0.1",
+  "scripts": {
+    "start": "tsx src/run.ts"
+  },
+  "dependencies": {
+    "pg": "^8.12.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.16.0",
+    "@types/node": "^20.14.0",
+    "@types/pg": "^8.11.0",
+    "typescript": "^5.5.0"
+  }
+}

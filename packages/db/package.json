@@ -1,0 +1,13 @@
+{
+  "name": "@startup-atlas/db",
+  "private": true,
+  "version": "0.0.1",
+  "main": "index.ts",
+  "types": "index.ts",
+  "dependencies": {
+    "pg": "^8.12.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.0"
+  }
+}
