@@ -37,3 +37,14 @@ export type ScoredRecord = GeocodedRecord & {
   score: number;
   status: ReviewStatus;
 };
+
+// What sources/news_rss.ts returns — a plain article, not a brand candidate.
+// Kept separate from RawRecord on purpose: an RSS headline is not a sourced
+// fact about a company, so it never enters the normalize/dedupe/geocode/
+// verify_score/upsert pipeline. See steps/refresh_news.ts.
+export type NewsItem = {
+  title: string;
+  url: string;
+  source: string;
+  publishedAt: string | null;
+};
