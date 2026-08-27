@@ -1,3 +1,13 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Zoom control sits bottom-left (see MapView.tsx), stacked right above the
+   developer-credit badge that also lives in that corner (CityExplorer.tsx's
+   fixed bottom-5 left-5, ~44px tall). !important because maplibre-gl.css is
+   imported from a leaf component and can load after this file, otherwise
+   silently winning the cascade on load order alone. */
+.maplibregl-ctrl-bottom-left {
+  bottom: 68px !important;
+  left: 16px !important;
+}

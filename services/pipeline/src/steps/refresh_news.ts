@@ -10,6 +10,17 @@
 import { getPool } from "@startup-atlas/db";
 import type { NewsItem } from "../types";
 
+// Strip common legal-entity suffixes before matching — press coverage
+// almost never uses the full registered name ("Call X Ringers Private
+// Limited"), it uses the brand name alone ("Call X Ringers"). Still a plain
+// substring check, not NLP; this just widens what "the brand name" means
+// for matching purposes, it doesn't loosen the requirement that the
+// (normalized) name actually appear in the title.
+const LEGAL_SUFFIX = /\s+(pvt\.?\s*ltd\.?|private\s+limited|llp|inc\.?|technologies|solutions)\s*$/i;
+function normalizeName(name: string): string {
+  return name.replace(LEGAL_SUFFIX, "").trim().toLowerCase();
+}
+
 export async function refreshNews(
   cityId: string,
   articles: NewsItem[]
@@ -42,7 +53,10 @@ export async function refreshNews(
     if (!articleId) continue;
 
     const titleLower = article.title.toLowerCase();
-    const match = brands.find((b) => titleLower.includes((b.name as string).toLowerCase()));
+    const match = brands.find((b) => {
+      const normalized = normalizeName(b.name as string);
+      return normalized.length > 2 && titleLower.includes(normalized);
+    });
     if (!match) continue;
 
     const linkRes = await pool.query(

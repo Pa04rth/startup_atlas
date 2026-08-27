@@ -146,7 +146,15 @@ async function loadLogos(
   return icons;
 }
 
-export function MapView({ city, brands }: { city: CityConfig; brands: BrandListItem[] }) {
+export function MapView({
+  city,
+  brands,
+  focusArea,
+}: {
+  city: CityConfig;
+  brands: BrandListItem[];
+  focusArea?: string;
+}) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   // Filters (via TopBar) change `brands` far more often than `city` changes —
@@ -183,7 +191,11 @@ export function MapView({ city, brands }: { city: CityConfig; brands: BrandListI
       zoom: city.defaultZoom,
     });
     mapRef.current = map;
-    map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
+    // bottom-left, not top-right — top-right sat directly under the
+    // floating TopBar (CityExplorer.tsx) and was invisible underneath it.
+    // Positioned via globals.css to clear the developer-credit badge that
+    // also lives in this corner (CityExplorer.tsx's fixed bottom-5 left-5).
+    map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "bottom-left");
 
     map.on("load", () => {
       map.addSource(SOURCE_ID, {
@@ -231,6 +243,24 @@ export function MapView({ city, brands }: { city: CityConfig; brands: BrandListI
         paint: { "text-color": "#1f2a24" },
       });
 
+      // Neutral dark shadow underneath everything — pure contrast, no trust
+      // meaning. Basemap terrain/land colors range from pale to fairly
+      // saturated greens, and a colored glow alone can wash out against a
+      // similarly-colored patch of map; this dark halo guarantees every pin
+      // separates from the basemap no matter what's under it.
+      map.addLayer({
+        id: "point-shadow",
+        type: "circle",
+        source: SOURCE_ID,
+        filter: ["!", ["has", "point_count"]],
+        paint: {
+          "circle-radius": 26,
+          "circle-color": "#000000",
+          "circle-blur": 1.2,
+          "circle-opacity": 0.22,
+        },
+      });
+
       // Soft colored glow behind each pin — green for a precise location,
       // amber for an honestly-approximate one. This is the trust signal
       // (replacing what used to be a hard dark stroke ring), plus it's what
@@ -241,16 +271,18 @@ export function MapView({ city, brands }: { city: CityConfig; brands: BrandListI
         source: SOURCE_ID,
         filter: ["!", ["has", "point_count"]],
         paint: {
-          "circle-radius": 22,
+          "circle-radius": 23,
           "circle-color": ["case", ["get", "precise"], "#0c7a5e", "#d99a3e"],
-          "circle-blur": 1,
-          "circle-opacity": ["case", ["get", "precise"], 0.55, 0.4],
+          "circle-blur": 0.8,
+          "circle-opacity": ["case", ["get", "precise"], 0.75, 0.6],
         },
       });
 
-      // The white badge itself — no stroke at all now (the glow layer
-      // underneath carries the trust color), just a plain circle so the
-      // logo sits on a clean, evenly-padded background.
+      // The white badge itself, plus a crisp colored ring (matching the
+      // glow's trust color) right at its edge — the glow alone is a soft
+      // blur that can fade into a busy basemap; this hard-edged stroke is
+      // what actually guarantees a clean, always-visible boundary so the
+      // logo sitting on top never blends into the map underneath it.
       map.addLayer({
         id: "points",
         type: "circle",
@@ -259,6 +291,8 @@ export function MapView({ city, brands }: { city: CityConfig; brands: BrandListI
         paint: {
           "circle-radius": 18,
           "circle-color": "#ffffff",
+          "circle-stroke-width": 2,
+          "circle-stroke-color": ["case", ["get", "precise"], "#0c7a5e", "#d99a3e"],
         },
       });
 
@@ -341,6 +375,44 @@ export function MapView({ city, brands }: { city: CityConfig; brands: BrandListI
     const source = map.getSource(SOURCE_ID) as maplibregl.GeoJSONSource | undefined;
     source?.setData(toFeatureCollection(brands, iconsRef.current));
   }, [brands]);
+
+  // A deliberate camera move, separate from the source-patching effect
+  // above (which never touches pan/zoom, so a search keystroke doesn't yank
+  // the view around) — picking an area is different: the whole point is to
+  // see that neighborhood. Reads brandsRef (always current, set at render
+  // time above) rather than depending on `brands` directly, so this only
+  // re-fires when the area selection itself changes, not on every
+  // unrelated filter tweak that happens to also narrow the same area.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    if (!focusArea) {
+      map.easeTo({ center: [city.centerLng, city.centerLat], zoom: city.defaultZoom, duration: 800 });
+      return;
+    }
+
+    const points = brandsRef.current.filter(
+      (b): b is BrandListItem & { lat: number; lng: number } =>
+        b.area === focusArea && b.lat != null && b.lng != null
+    );
+    if (points.length === 0) return;
+
+    if (points.length === 1) {
+      map.easeTo({ center: [points[0].lng, points[0].lat], zoom: 15, duration: 800 });
+      return;
+    }
+
+    const lngs = points.map((b) => b.lng);
+    const lats = points.map((b) => b.lat);
+    map.fitBounds(
+      [
+        [Math.min(...lngs), Math.min(...lats)],
+        [Math.max(...lngs), Math.max(...lats)],
+      ],
+      { padding: 80, duration: 800, maxZoom: 16 }
+    );
+  }, [focusArea, city.centerLat, city.centerLng, city.defaultZoom]);
 
   return <div ref={containerRef} className="h-full w-full" />;
 }

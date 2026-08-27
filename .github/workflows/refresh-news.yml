@@ -1,0 +1,42 @@
+name: Refresh news
+
+# Maintenance-phase job (CLAUDE.md §12, phase 2: "news = refresh_news RSS...
+# move to a free GitHub Actions cron so freshness doesn't need the laptop
+# awake"). Runs services/pipeline/src/refresh-news.ts for each live city —
+# fetches Inc42/YourStory/Entrackr/Hacker News, stores every article seen,
+# and links whichever ones actually name-match a published/probable brand.
+# Never touches brands/offices — this can't invent or upgrade a startup, it
+# only ever adds news_articles rows and company_news links.
+
+on:
+  schedule:
+    - cron: "0 3 * * *" # 03:00 UTC ≈ 08:30 IST daily
+  workflow_dispatch: {} # manual "Run workflow" button for on-demand refreshes
+
+jobs:
+  refresh-news:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        city: [pune, mumbai]
+      fail-fast: false # a bad run for one city shouldn't cancel the other
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Refresh news for ${{ matrix.city }}
+        run: pnpm --filter services-pipeline run refresh-news ${{ matrix.city }}
+        env:
+          # Repo Settings → Secrets and variables → Actions → New repository
+          # secret. Use the same Neon/Supabase pooler URL as the local .env.
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}

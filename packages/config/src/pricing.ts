@@ -9,7 +9,7 @@ export const AD_PRICING: Record<string, number> = {
 };
 
 export const AD_LABELS: Record<string, string> = {
-  boost: "Boosted pin — ₹2,500 / 7 days",
+  boost: "Boosted pin — ₹5,000 / 7 days",
   featured: "Sponsor tile — ₹5,000 / 7 days",
   flash: "Flash promo — ₹2,500 / 24 hours",
   banner: "Banner — ₹3,000 / 7 days",

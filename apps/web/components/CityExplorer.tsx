@@ -1,16 +1,37 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import type { CitySnapshot } from "@/lib/snapshot";
 import { TopBar, type Filters } from "./TopBar";
 import { MapView } from "./MapView";
 import { PrecisionBadge } from "./PrecisionBadge";
 import { CompanyLogo } from "./CompanyLogo";
+import { FloatingAdPanel } from "./FloatingAdPanel";
+import { FloatingNewsPanel } from "./FloatingNewsPanel";
+import { DeveloperCredit } from "./DeveloperCredit";
 
 const EMPTY_FILTERS: Filters = { search: "", kind: "", area: "", stage: "", sector: "" };
 
-export function CityExplorer({ snapshot, jobsCount }: { snapshot: CitySnapshot; jobsCount: number }) {
+export function CityExplorer({
+  snapshot,
+  jobsCount,
+  sponsorBar,
+  leftAdSlot,
+  rightAdSlot,
+  newsPanel,
+}: {
+  snapshot: CitySnapshot;
+  jobsCount: number;
+  // Rendered server-side (SponsorBar/AdSlotStack/GeneralNewsList all hit
+  // the DB) and handed down as already-resolved nodes — a client component
+  // can't await them itself, but React lets a server component render fine
+  // as a child slot passed in from its (server) parent page.
+  sponsorBar?: ReactNode;
+  leftAdSlot?: ReactNode;
+  rightAdSlot?: ReactNode;
+  newsPanel?: ReactNode;
+}) {
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
   const [view, setView] = useState<"map" | "grid">("map");
 
@@ -31,21 +52,33 @@ export function CityExplorer({ snapshot, jobsCount }: { snapshot: CitySnapshot; 
 
   return (
     <div className="flex h-screen flex-col">
-      <TopBar
-        city={snapshot.city}
-        facets={snapshot.facets}
-        filters={filters}
-        onFiltersChange={setFilters}
-        view={view}
-        onViewChange={setView}
-        jobsCount={jobsCount}
-      />
+      {sponsorBar}
+      <div className="relative min-h-0 flex-1">
+        {/* Floats over the map/grid rather than pushing it down — the
+            NavigationControl offset in globals.css keeps MapLibre's own
+            top-right zoom control from landing underneath it. */}
+        <div className="absolute inset-x-4 top-4 z-30">
+          <TopBar
+            city={snapshot.city}
+            facets={snapshot.facets}
+            filters={filters}
+            onFiltersChange={setFilters}
+            view={view}
+            onViewChange={setView}
+            jobsCount={jobsCount}
+          />
+        </div>
 
-      <div className="min-h-0 flex-1">
+        {newsPanel && <FloatingNewsPanel>{newsPanel}</FloatingNewsPanel>}
+
         {view === "map" ? (
-          <MapView city={snapshot.city} brands={filtered} />
+          <>
+            <MapView city={snapshot.city} brands={filtered} focusArea={filters.area} />
+            {leftAdSlot && <FloatingAdPanel side="left">{leftAdSlot}</FloatingAdPanel>}
+            {rightAdSlot && <FloatingAdPanel side="right">{rightAdSlot}</FloatingAdPanel>}
+          </>
         ) : (
-          <div className="h-full overflow-y-auto bg-neutral-50 p-4">
+          <div className="h-full overflow-y-auto bg-neutral-50 p-4 pt-20">
             {filtered.length === 0 ? (
               <p className="mt-12 text-center text-sm text-neutral-500">No startups match these filters.</p>
             ) : (
@@ -87,6 +120,14 @@ export function CityExplorer({ snapshot, jobsCount }: { snapshot: CitySnapshot; 
             )}
           </div>
         )}
+      </div>
+
+      <div className="fixed bottom-5 right-5 z-40 flex items-center gap-1.5 rounded-full bg-neutral-900 px-4 py-2.5 text-sm font-medium text-white shadow-lg">
+        🚀 {snapshot.brands.length} startup{snapshot.brands.length === 1 ? "" : "s"} active in {snapshot.city.name}
+      </div>
+
+      <div className="fixed bottom-5 left-5 z-40 flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-500 shadow-lg">
+        <DeveloperCredit />
       </div>
     </div>
   );

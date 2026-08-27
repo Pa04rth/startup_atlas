@@ -14,7 +14,12 @@ const parser = new Parser();
 const FEEDS: Array<{ url: string; source: string }> = [
   { url: "https://inc42.com/feed/", source: "Inc42" },
   { url: "https://yourstory.com/feed", source: "YourStory" },
-  { url: "https://entrackr.com/feed", source: "Entrackr" },
+  { url: "https://entrackr.com/rss", source: "Entrackr" }, // /feed 404s as of 2026-08 — Entrackr moved it
+  // hnrss.org is a well-known free RSS proxy over Hacker News' own API (no
+  // official HN RSS exists) — same rss-parser path as every other feed
+  // here, no new dependency. Query scoped to "startup" to keep it on-topic
+  // rather than pulling in all of HN's general tech firehose.
+  { url: "https://hnrss.org/newest?q=startup&search_attrs=title", source: "Hacker News" },
 ];
 
 export async function collectNewsArticles(): Promise<NewsItem[]> {

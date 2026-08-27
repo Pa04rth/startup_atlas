@@ -10,7 +10,10 @@ const inputClass =
 const labelClass = "block text-sm font-medium text-neutral-800";
 
 export function AdvertiseForm() {
-  const [booking, setBooking] = useState<{ id: number; amountInr: number } | null>(null);
+  const [booking, setBooking] = useState<{
+    id: number;
+    amountInr: number;
+  } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -49,7 +52,11 @@ export function AdvertiseForm() {
 
   if (booking) {
     return (
-      <PaymentVerificationForm kind="ad_booking" referenceId={String(booking.id)} amountInr={booking.amountInr} />
+      <PaymentVerificationForm
+        kind="ad_booking"
+        referenceId={String(booking.id)}
+        amountInr={booking.amountInr}
+      />
     );
   }
 
@@ -91,12 +98,26 @@ export function AdvertiseForm() {
 
       <div>
         <label className={labelClass}>Contact email *</label>
-        <input name="contactEmail" type="email" required placeholder="you@company.com" className={inputClass} />
+        <input
+          name="contactEmail"
+          type="email"
+          required
+          placeholder="you@company.com"
+          className={inputClass}
+        />
       </div>
 
       {error && (
-        <p className="rounded-lg border border-red-200 bg-red-50 px-3.5 py-2.5 text-sm text-red-700">{error}</p>
+        <p className="rounded-lg border border-red-200 bg-red-50 px-3.5 py-2.5 text-sm text-red-700">
+          {error}
+        </p>
       )}
+      <div>
+        <p className="text-sm text-neutral-600">
+          After booking, you will receive an email with payment instructions.
+          Once the payment is confirmed, your ad will go live.
+        </p>
+      </div>
 
       <button
         type="submit"

@@ -19,3 +19,4 @@ apps/web/public/tiles/*.pmtiles
 # both to R2 before deploying (see infra/pmtiles/README.md for the pattern).
 apps/web/public/logos/
 apps/web/public/uploads/
+packages/db/*.json

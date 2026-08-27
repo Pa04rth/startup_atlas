@@ -8,6 +8,9 @@ export type LiveAd = {
   kind: AdKind;
   startsAt: string | null;
   endsAt: string | null;
+  brandName: string | null;
+  brandSlug: string | null;
+  brandLogoUrl: string | null;
 };
 
 export async function getLiveAds(cityId: string, kind?: AdKind): Promise<LiveAd[]> {
@@ -16,17 +19,19 @@ export async function getLiveAds(cityId: string, kind?: AdKind): Promise<LiveAd[
   let kindClause = "";
   if (kind) {
     params.push(kind);
-    kindClause = `and kind = $${params.length}`;
+    kindClause = `and ab.kind = $${params.length}`;
   }
 
   const { rows } = await pool.query(
-    `select id, brand_id, kind, starts_at, ends_at
-     from ad_bookings
-     where city_id = $1 and status = 'live'
-       and (starts_at is null or starts_at <= now())
-       and (ends_at is null or ends_at >= now())
+    `select ab.id, ab.brand_id, ab.kind, ab.starts_at, ab.ends_at,
+            b.name as brand_name, b.slug as brand_slug, b.logo_url as brand_logo_url
+     from ad_bookings ab
+     left join brands b on b.id = ab.brand_id
+     where ab.city_id = $1 and ab.status = 'live'
+       and (ab.starts_at is null or ab.starts_at <= now())
+       and (ab.ends_at is null or ab.ends_at >= now())
        ${kindClause}
-     order by created_at desc`,
+     order by ab.created_at desc`,
     params
   );
   return rows.map((r) => ({
@@ -35,6 +40,9 @@ export async function getLiveAds(cityId: string, kind?: AdKind): Promise<LiveAd[
     kind: r.kind,
     startsAt: r.starts_at,
     endsAt: r.ends_at,
+    brandName: r.brand_name,
+    brandSlug: r.brand_slug,
+    brandLogoUrl: r.brand_logo_url,
   }));
 }
 
