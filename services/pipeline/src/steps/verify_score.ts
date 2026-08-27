@@ -9,10 +9,10 @@ export function verifyScore(records: GeocodedRecord[]): ScoredRecord[] {
     const score = scoreRecord({
       hasWebsite: !!record.website,
       hasDomain: !!record.domain,
-      hasSector: false, // becomes true once a sector-classification step exists
+      hasSector: !!record.sector, // real for sources that state it (e.g. inc42.ts); false elsewhere
       hasStage: false,
       descriptionLength: record.description?.length ?? 0,
-      hasFoundedYear: false,
+      hasFoundedYear: !!record.foundedYear,
       precision: record.precision,
       seenInSourceCount: 1, // dedupe.ts doesn't track this yet — see TODO there
     });

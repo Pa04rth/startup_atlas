@@ -24,6 +24,9 @@ export function normalize(raw: RawRecord[]): NormalizedRecord[] {
       tagline: r.tagline,
       description: r.description,
       address: r.address,
+      logoUrl: r.logoUrl,
+      foundedYear: r.foundedYear,
+      sector: r.sector,
       sourceUrl: r.sourceUrl,
       sourceName: r.sourceName,
     }));

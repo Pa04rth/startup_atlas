@@ -20,3 +20,7 @@ export function getPool(): Pool {
 export * from "./queries/brands";
 export * from "./queries/jobs";
 export * from "./queries/contacts";
+export * from "./queries/news";
+export * from "./queries/ads";
+export * from "./queries/payments";
+export * from "./queries/admin";

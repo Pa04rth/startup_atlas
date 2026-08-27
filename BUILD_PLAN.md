@@ -17,6 +17,202 @@
 > plan follows `CLAUDE.md` throughout — including here, where the full admin panel (Phase 4) is
 > built for real instead of stubbed.
 
+> **No payment gateway — manual QR verification instead.** Every paid surface in this plan (ads,
+> recruiter subscriptions, paid connect) uses the same mechanism: a QR code shown on the page →
+> payer scans it and pays via their own UPI app → submits the transaction id in a form → nothing
+> goes live until an admin manually verifies it in Phase 4's `app/payments/page.tsx`. This replaces
+> Razorpay (Orders, Route escrow, webhooks) everywhere in this plan — no gateway integration, no
+> API keys on the payment path, no webhook signature verification. The trade-off is honest: escrow
+> and instant activation become manual, admin-mediated steps instead of automated ones. See Phase 5
+> for the shared `payment_verifications` table this runs on.
+
+---
+
+## Part 0 — Neon database setup (copy-paste SQL)
+
+This is what already ran to get Phase 1 live — written out step-by-step so you can reproduce it
+(a fresh project, a teammate's own DB, disaster recovery, whatever). Both blocks below are
+identical to `packages/db/schema.sql` and `packages/db/seed/cities.sql` in the repo — the files
+stay the source of truth, this is just the copy-paste-ready version.
+
+**Steps:**
+
+1. Go to **[neon.tech](https://neon.tech)**, sign in, click **New Project**.
+2. Name it (e.g. `startup-atlas`), pick a region close to your users — `ap-southeast-1` (Singapore)
+   is a reasonable default for an India-focused product.
+3. Once created, open the project's **Dashboard → SQL Editor**.
+4. Paste **Block A** below, run it. Then paste **Block B**, run it.
+5. Run the verification query at the bottom — you should see 22 table names and 2 city rows.
+6. From **Dashboard → Connection Details**, copy the connection string that has **`-pooler`** in
+   the hostname (e.g. `...-pooler.c-3.ap-southeast-1.aws.neon.tech`) — that's the pooled one.
+   **Note:** unlike Supabase (which puts its pooler on port `6543`), Neon's pooler uses the same
+   port as the direct connection (`5432`, usually omitted from the URL) — the `-pooler` in the
+   *hostname* is what tells you you've got the right one. Paste it into `.env` as `DATABASE_URL`.
+
+**Block A — schema** (extensions, tables, enums, indexes):
+
+```sql
+-- Startup Atlas — core schema. Run once against a fresh Postgres+PostGIS DB.
+-- Source of truth: CLAUDE.md section 5 / packages/db/schema.sql
+
+-- extensions
+CREATE EXTENSION IF NOT EXISTS postgis;
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+-- reference ------------------------------------------------------
+CREATE TABLE cities (
+  id TEXT PRIMARY KEY,                 -- 'pune','mumbai'
+  name TEXT NOT NULL, state TEXT NOT NULL DEFAULT 'Maharashtra',
+  center_lat DOUBLE PRECISION, center_lng DOUBLE PRECISION,
+  bbox geometry(Polygon,4326), default_zoom INT DEFAULT 12,
+  created_at TIMESTAMPTZ DEFAULT now());
+
+CREATE TABLE areas (                    -- centroids for synthetic pins
+  id BIGSERIAL PRIMARY KEY, city_id TEXT REFERENCES cities(id),
+  name TEXT NOT NULL, centroid geometry(Point,4326) NOT NULL,
+  UNIQUE(city_id,name));
+
+-- public brand layer --------------------------------------------
+CREATE TYPE company_kind  AS ENUM ('startup','vc');
+CREATE TYPE lifecycle     AS ENUM ('active','acquired','public','closed','unknown');
+CREATE TYPE loc_precision AS ENUM ('exact','building','street','locality','area','city','synthetic');
+CREATE TYPE review_status AS ENUM ('published','probable','review','archived');
+
+CREATE TABLE brands (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  city_id TEXT NOT NULL REFERENCES cities(id),
+  slug TEXT NOT NULL, name TEXT NOT NULL,
+  kind company_kind DEFAULT 'startup',
+  tagline TEXT, description TEXT, sector TEXT, stage TEXT,
+  tags TEXT[] DEFAULT '{}', website TEXT, domain TEXT,
+  founded_year INT, lifecycle lifecycle DEFAULT 'unknown',
+  hiring BOOLEAN DEFAULT false, logo_url TEXT,
+  score INT DEFAULT 0, status review_status DEFAULT 'review',
+  last_verified_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT now(), updated_at TIMESTAMPTZ DEFAULT now(),
+  UNIQUE(city_id,slug));
+CREATE INDEX brands_city_status_idx ON brands(city_id,status);
+CREATE INDEX brands_domain_idx      ON brands(domain);
+CREATE INDEX brands_name_trgm_idx   ON brands USING gin(name gin_trgm_ops);
+
+-- legal entity layer (verification only) -------------------------
+CREATE TABLE legal_entities (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  legal_name TEXT NOT NULL, cin TEXT UNIQUE, incorp_date DATE,
+  reg_state TEXT, mca_status TEXT, evidence_url TEXT);
+CREATE TYPE brand_relation AS ENUM
+  ('operated_by','brand_of','subsidiary_of','formerly_known_as','acquired_by');
+CREATE TABLE brand_entity_links (
+  brand_id UUID REFERENCES brands(id) ON DELETE CASCADE,
+  entity_id UUID REFERENCES legal_entities(id) ON DELETE CASCADE,
+  relation brand_relation NOT NULL, evidence_url TEXT,
+  PRIMARY KEY(brand_id,entity_id,relation));
+
+-- geography (the workhorse) --------------------------------------
+CREATE TABLE offices (
+  id BIGSERIAL PRIMARY KEY, brand_id UUID REFERENCES brands(id) ON DELETE CASCADE,
+  city_id TEXT REFERENCES cities(id),
+  geom geometry(Point,4326) NOT NULL,
+  precision loc_precision DEFAULT 'synthetic',
+  area TEXT, address TEXT, is_public_office BOOLEAN DEFAULT false,
+  location_source TEXT, verified_at TIMESTAMPTZ);
+CREATE INDEX offices_geom_gix ON offices USING gist(geom);   -- "in this rectangle?"
+CREATE INDEX offices_city_idx ON offices(city_id);
+
+-- people & FREE contacts -----------------------------------------
+CREATE TABLE people (id UUID PRIMARY KEY DEFAULT uuid_generate_v4(), name TEXT, linkedin TEXT);
+CREATE TABLE company_people (
+  brand_id UUID REFERENCES brands(id) ON DELETE CASCADE,
+  person_id UUID REFERENCES people(id) ON DELETE CASCADE,
+  role TEXT, is_referrer BOOLEAN DEFAULT false,
+  PRIMARY KEY(brand_id,person_id,role));
+CREATE TYPE contact_type AS ENUM ('hr','careers','leadership','general');
+CREATE TABLE company_contacts (
+  id BIGSERIAL PRIMARY KEY, brand_id UUID REFERENCES brands(id) ON DELETE CASCADE,
+  type contact_type NOT NULL, email TEXT, url TEXT,
+  is_public BOOLEAN DEFAULT true, source_url TEXT NOT NULL,  -- provenance required
+  opted_out BOOLEAN DEFAULT false, verified_at TIMESTAMPTZ);
+
+-- jobs (real postings, not stubs) --------------------------------
+CREATE TABLE job_postings (
+  id BIGSERIAL PRIMARY KEY, brand_id UUID REFERENCES brands(id) ON DELETE CASCADE,
+  city_id TEXT REFERENCES cities(id), title TEXT, track TEXT, seniority TEXT,
+  fresher_friendly BOOLEAN DEFAULT false, apply_url TEXT,
+  is_walkin BOOLEAN DEFAULT false, walkin_at TIMESTAMPTZ, venue TEXT,
+  source_url TEXT, posted_at TIMESTAMPTZ, expires_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT now());
+CREATE INDEX job_postings_city_idx ON job_postings(city_id,expires_at);
+
+-- news -----------------------------------------------------------
+CREATE TABLE news_articles (
+  id BIGSERIAL PRIMARY KEY, title TEXT NOT NULL, url TEXT UNIQUE NOT NULL,
+  source TEXT, category TEXT, published_at TIMESTAMPTZ);
+CREATE TABLE company_news (
+  brand_id UUID REFERENCES brands(id) ON DELETE CASCADE,
+  article_id BIGINT REFERENCES news_articles(id) ON DELETE CASCADE,
+  PRIMARY KEY(brand_id,article_id));
+
+-- monetization ---------------------------------------------------
+CREATE TYPE ad_kind   AS ENUM ('banner','boost','flash','featured');
+CREATE TYPE ad_status AS ENUM ('waitlisted','queued','live','expired','rejected');
+CREATE TABLE ad_bookings (
+  id BIGSERIAL PRIMARY KEY, brand_id UUID REFERENCES brands(id) ON DELETE SET NULL,
+  city_id TEXT REFERENCES cities(id), kind ad_kind NOT NULL, amount_inr INT NOT NULL,
+  starts_at TIMESTAMPTZ, ends_at TIMESTAMPTZ, status ad_status DEFAULT 'waitlisted',
+  contact_email TEXT, payment_ref TEXT, created_at TIMESTAMPTZ DEFAULT now());
+CREATE TYPE connect_kind AS ENUM ('intro_call','resume_review','referral');
+CREATE TABLE connect_requests (
+  id BIGSERIAL PRIMARY KEY, candidate_email TEXT NOT NULL,
+  referrer_person_id UUID REFERENCES people(id), brand_id UUID REFERENCES brands(id),
+  kind connect_kind NOT NULL, fee_inr INT, commission_inr INT,
+  status TEXT DEFAULT 'requested', route_transfer_id TEXT,
+  created_at TIMESTAMPTZ DEFAULT now());
+
+-- trust / provenance / ops ---------------------------------------
+CREATE TABLE sources (id BIGSERIAL PRIMARY KEY, name TEXT, kind TEXT, base_url TEXT);
+CREATE TABLE field_evidence (
+  id BIGSERIAL PRIMARY KEY, entity TEXT, entity_id UUID, field TEXT, value TEXT,
+  source_id BIGINT REFERENCES sources(id), source_url TEXT, confidence INT,
+  checked_at TIMESTAMPTZ DEFAULT now());
+CREATE INDEX field_evidence_idx ON field_evidence(entity,entity_id,field);
+CREATE TABLE submissions (
+  id BIGSERIAL PRIMARY KEY, city_id TEXT REFERENCES cities(id), name TEXT NOT NULL,
+  website TEXT, tagline TEXT, stage TEXT, hiring BOOLEAN, jobs_url TEXT, email TEXT,
+  raw JSONB, status TEXT DEFAULT 'pending', created_at TIMESTAMPTZ DEFAULT now());
+CREATE TABLE page_views (            -- own first-party analytics
+  id BIGSERIAL PRIMARY KEY, city_id TEXT, path TEXT, referrer TEXT,
+  event TEXT, day DATE DEFAULT now(), created_at TIMESTAMPTZ DEFAULT now());
+CREATE TABLE ingestion_runs (
+  id BIGSERIAL PRIMARY KEY, city_id TEXT, source TEXT,
+  started_at TIMESTAMPTZ DEFAULT now(), finished_at TIMESTAMPTZ,
+  found INT, upserted INT, needs_review INT, notes TEXT);
+```
+
+**Block B — seed the two launch cities:**
+
+```sql
+-- Seed the two launch cities. Centroids are approximate city-center points;
+-- bbox should be tightened once real coverage is known (see packages/config/src/cities.ts).
+
+INSERT INTO cities (id, name, state, center_lat, center_lng, default_zoom) VALUES
+  ('pune',   'Pune',   'Maharashtra', 18.5204, 73.8567, 12),
+  ('mumbai', 'Mumbai', 'Maharashtra', 19.0760, 72.8777, 12)
+ON CONFLICT (id) DO NOTHING;
+```
+
+**Verification query** — paste this last, you should get 22 rows back plus a 2-row `cities` list:
+
+```sql
+select table_name from information_schema.tables where table_schema='public' order by 1;
+select id, name from cities order by id;
+```
+
+Both blocks are idempotent-safe to re-run (`CREATE TABLE IF NOT EXISTS` isn't used, so re-running
+Block A against a DB that already has these tables will error on `CREATE TABLE` — that's expected
+and harmless, it means the schema's already there; Block B is genuinely safe to re-run any time
+via its `ON CONFLICT DO NOTHING`).
+
 ---
 
 ## Part 1 — Module dependency map
@@ -53,7 +249,7 @@ flowchart TB
     subgraph WEB["apps/web (public product)"]
         SNAPSHOT["lib/snapshot.ts / lib/bounds.ts<br/>(the hybrid switch)"]
         PAGES["app/**/page.tsx<br/>city picker, map+grid, profile, jobs"]
-        APIROUTES["app/api/**/route.ts<br/>snapshot, bounds, search, submit,<br/>advertise, track, webhooks"]
+        APIROUTES["app/api/**/route.ts<br/>snapshot, bounds, search, submit,<br/>advertise, track, payment-verification"]
     end
 
     subgraph ADMIN["apps/admin (control plane)"]
@@ -150,7 +346,8 @@ startup-atlas/
 │  │  │     ├─ submit/route.ts                # planned (Phase 3)
 │  │  │     ├─ track/route.ts                 # planned (Phase 6)
 │  │  │     ├─ connect/route.ts               # planned (Phase 9, v2)
-│  │  │     └─ webhooks/razorpay/route.ts     # planned (Phase 8/9, v2)
+│  │  │     └─ payment-verification/route.ts  # planned (Phase 5 — shared by
+│  │  │                                       #   ads/subscriptions/connect, see note)
 │  │  ├─ components/
 │  │  │  ├─ CityPicker.tsx                    # planned (Phase 2)
 │  │  │  ├─ TopBar.tsx                        # planned (Phase 2)
@@ -163,16 +360,21 @@ startup-atlas/
 │  │  │  ├─ NewsPanel.tsx                     # planned (Phase 3)
 │  │  │  ├─ SponsorBar.tsx                    # planned (Phase 5)
 │  │  │  ├─ AdSlot.tsx                        # planned (Phase 5)
+│  │  │  ├─ PaymentQR.tsx                     # planned (Phase 5 — shared QR +
+│  │  │  │                                    #   instructions, used everywhere money changes hands)
 │  │  │  └─ forms/
 │  │  │     ├─ SubmitForm.tsx                 # planned (Phase 3)
 │  │  │     ├─ AdvertiseForm.tsx              # planned (Phase 5)
+│  │  │     ├─ PaymentVerificationForm.tsx    # planned (Phase 5 — shared: name,
+│  │  │     │                                 #   contact, transaction id, optional screenshot)
 │  │  │     └─ ConnectModal.tsx               # planned (Phase 9, v2)
 │  │  └─ lib/
 │  │     ├─ snapshot.ts                       # done  (the hybrid loader)
+│  │     ├─ admin/                            # done  (auth.ts, actions.ts, rate-limit.ts)
+│  │     ├─ map/style.ts                      # done  (self-hosted PMTiles rendering)
 │  │     ├─ bounds.ts                         # planned (Phase 10 — the flip's other half)
 │  │     ├─ search.ts                         # planned (Phase 10, v2)
-│  │     ├─ analytics.ts                      # planned (Phase 6)
-│  │     └─ payments.ts                       # planned (Phase 8/9, v2)
+│  │     └─ analytics.ts                      # planned (Phase 6)
 │  │
 │  └─ admin/                                  # control plane
 │     ├─ package.json                         # planned (Phase 4)
@@ -185,7 +387,9 @@ startup-atlas/
 │     │  ├─ brands/page.tsx                   # planned (Phase 4 — bulk browse/edit)
 │     │  ├─ brands/[id]/page.tsx              # planned (Phase 4 — single edit form)
 │     │  ├─ submissions/page.tsx              # planned (Phase 4)
-│     │  ├─ ads/page.tsx                      # planned (Phase 4 — approve waitlisted)
+│     │  ├─ payments/page.tsx                 # planned (Phase 4 — the ONE queue for every
+│     │  │                                    #   pending payment_verifications row, any kind)
+│     │  ├─ connect/page.tsx                  # planned (Phase 9, v2 — mark delivered/released)
 │     │  ├─ ingest/page.tsx                   # planned (Phase 4 — run-ingest trigger)
 │     │  └─ api/auth/route.ts                 # planned (Phase 4)
 │     └─ lib/
@@ -200,6 +404,8 @@ startup-atlas/
 │  │     ├─ run.ts                            # done  (discovery entry point)
 │  │     ├─ refresh-news.ts                   # done
 │  │     ├─ refresh-jobs.ts                   # planned (Phase 7)
+│  │     ├─ refresh-subscriptions.ts          # planned (Phase 8, v2 — expiry check)
+│  │     ├─ refresh-connect.ts                # planned (Phase 9, v2 — overdue-delivery flag)
 │  │     ├─ types.ts                          # done
 │  │     ├─ sources/
 │  │     │  ├─ index.ts                       # done  (registers collectors)
@@ -261,7 +467,9 @@ startup-atlas/
 │     │  ├─ cities.sql                        # done  (live on Neon)
 │     │  └─ areas.sql                         # planned (Phase 7 — named localities)
 │     ├─ migrations/
-│     │  ├─ 0001_recruiter_subscriptions.sql  # planned (Phase 8, v2 — new tables)
+│     │  ├─ 0000_payment_verifications.sql    # done  (SQL below — needed before Phase 5,
+│     │  │                                    #   not v2: ads need this at launch)
+│     │  ├─ 0001_recruiter_subscriptions.sql  # done  (SQL below, run at Phase 8)
 │     │  └─ 0002_person_connections.sql       # planned (Phase 11, v2 — new tables)
 │     ├─ queries/
 │     │  ├─ brands.ts                         # done
@@ -269,13 +477,16 @@ startup-atlas/
 │     │  ├─ contacts.ts                       # done
 │     │  ├─ news.ts                           # planned (Phase 3)
 │     │  ├─ ads.ts                            # planned (Phase 5)
+│     │  ├─ payments.ts                       # planned (Phase 5 — insert/list/approve/reject
+│     │  │                                    #   payment_verifications, shared by every paid surface)
+│     │  ├─ recruiters.ts                     # planned (Phase 8, v2)
 │     │  └─ admin.ts                          # planned (Phase 4)
 │     └─ graph/
 │        └─ warm_path.ts                      # planned (Phase 11, v2)
 │
 ├─ infra/
-│  ├─ pmtiles/                                # planned (fast-follow after Phase 2 —
-│  │                                          #   see Phase 2 note; not launch-blocking)
+│  ├─ pmtiles/                                # done — README.md + build/ (gitignored,
+│  │                                          #   local build tooling, not committed)
 │  ├─ nominatim/                              # planned (only if you outgrow the public
 │  │                                          #   rate limit — see CLAUDE.md §15)
 │  └─ deploy/
@@ -332,10 +543,21 @@ from that DB.
 
 ---
 
-## Phase 2 — Core Read Path (Map, Grid, Company Profile)
+## Phase 2 — Core Read Path (Map, Grid, Company Profile) ✅ DONE
 
 **Goal:** `localhost:3000` shows Pune's pins on a map, filters/searches them in memory, and a
 click lands on a server-rendered company profile.
+
+> **Status:** built and verified live end-to-end via curl (`/`, `/pune`, `/mumbai`,
+> `/api/snapshot/pune`, and a real company profile all return 200 with correct SSR content,
+> correct `<title>`, and an honest `Approximate — city centroid` precision label — no fake exact
+> pins). 25 of the 124 ingested brands were published through the admin review flow so the
+> map/grid have real data; the other 99 sit in `/admin/review`. `kind` (startup/vc) was added to
+> `BrandListItem`/the snapshot facets to support the "All types" filter, which wasn't called out
+> explicitly before. **One deliberate scope change:** the admin panel (Phase 4) lives at `/admin`
+> inside `apps/web`, not a separate `apps/admin` project — a second full Next.js install costs
+> ~18 minutes before any admin code gets written; splitting it out later for deploy isolation is
+> a config change, not a rewrite.
 
 ```mermaid
 flowchart TD
@@ -357,7 +579,7 @@ flowchart TD
 | 4 | `app/[city]/page.tsx` | Screen 2 — fetches the snapshot server-side (direct import of `lib/snapshot.ts`), passes it down | — | `notFound()` from `next/navigation` if `cityId` isn't in `packages/config`'s `cities` list. |
 | 5 | `components/TopBar.tsx` | Control bar (FR-3): search, type/area/stage/sector dropdowns, map/grid toggle, jobs count | `useState` | Client component (`'use client'`), state-only, no fetching. Lift filter state up to `CityExplorer`. Exact copy from the Master Spec mock: 📍 logo + city name · search "Search startups, sectors, founders…" · 4 filter pills ("All types ▾ / All areas ▾ / All stages ▾ / All sectors ▾") · Map/Grid toggle · "💼 jobs" live count · "Submit" button. |
 | 6 | `components/CityExplorer.tsx` | Owns filter state, filters the in-memory snapshot, renders grid or map | — | The in-memory filtering CLAUDE.md §8 describes — no server round-trip per keystroke. `useMemo` the filtered list. |
-| 7 | `components/MapView.tsx` | MapLibre map: clustered, precision-aware pins | `maplibre-gl` | Vanilla `maplibre-gl` (skip `react-map-gl`), `useRef` + `useEffect` to init once. Basemap: a free public style URL for now — self-hosting PMTiles (`infra/pmtiles/`) is real infra work and a fast-follow, not a blocker (CLAUDE.md §15 already flags it as a long pole). Clustering: MapLibre's **built-in** `cluster: true` GeoJSON source option, no Supercluster. Color pins by `precision` (exact/building/street = solid, area/synthetic = faded ring) — this *is* the trust feature. |
+| 7 | `components/MapView.tsx` | MapLibre map: clustered, precision-aware pins | `maplibre-gl`, `pmtiles` | Vanilla `maplibre-gl` (skip `react-map-gl`), `useRef` + `useEffect` to init once. **Basemap upgraded to self-hosted PMTiles** (`infra/pmtiles/` — see its README) — the CLAUDE.md §2 locked decision, done for real rather than deferred: `apps/web/public/tiles/maharashtra.pmtiles` (Planetiler + OpenMapTiles profile, bounded to Pune+Mumbai, 38MB, zoom 0–14), read directly by MapLibre via the `pmtiles://` protocol (`Protocol` from the `pmtiles` package, registered once). `apps/web/lib/map/style.ts` defines the actual rendering (roads/water/buildings/labels) since raw vector tiles carry no visual style. Clustering: MapLibre's **built-in** `cluster: true` GeoJSON source option, no Supercluster. Color pins by `precision` (exact/building/street = solid, area/synthetic = faded ring) — this *is* the trust feature. |
 | 8 | `components/PrecisionBadge.tsx`, `VerifiedBadge.tsx` | Small reusable badges shown on cards and the profile page | — | `PrecisionBadge` renders the honest label ("exact location" vs "approximate — area centroid"); `VerifiedBadge` shows `last_verified_at` relative time. Both pure presentational, take props, no data fetching. |
 | 9 | `app/[city]/company/[slug]/page.tsx` | Screen 3 — SSR company profile (FR-4), the SEO surface | `@startup-atlas/db` | Fetch **directly from Postgres** (fresher than the snapshot, and this is where crawlers land). `generateMetadata()` for title/description. Show precision honestly — if `synthetic`, say so. |
 
@@ -366,7 +588,12 @@ flowchart TD
 
 ---
 
-## Phase 3 — Jobs, Contacts, News Panel, Submit
+## Phase 3 — Jobs, Contacts, News Panel, Submit ✅ DONE
+
+> **Status:** built and verified — `/pune/jobs` and `/submit` both return 200; the submit API
+> re-validates the honeypot and every field server-side with `zod` even though the client already
+> checks it. Contacts and news render conditionally (nothing shown when a brand has neither),
+> matching the "never show an empty box" rule.
 
 **Goal:** every trust surface from CLAUDE.md is visible on the site — sourced contacts, real job
 postings, linked news, and a way for the public to submit/claim a company.
@@ -398,7 +625,16 @@ contacts with sources, linked news, and any open jobs for that company.
 
 ---
 
-## Phase 4 — Admin Panel (the control plane)
+## Phase 4 — Admin Panel (the control plane) ✅ DONE (as `/admin` inside `apps/web`)
+
+> **Status:** built and verified end-to-end, including auth — wrong password → 401, correct
+> password → session cookie set, gated pages → 200 with cookie / 307 redirect without one. A
+> stateless HMAC-signed session cookie (Web Crypto, Edge-runtime-compatible — `node:crypto` isn't
+> available in `middleware.ts`) replaces the plan's original sketch, since that ran into a real
+> runtime constraint. Login is now rate-limited (10 attempts / 15 min per IP) after a security
+> pass — verified live: attempts 1–10 return 401, attempt 11 returns 429. Bulk brand edit
+> (`brands/page.tsx` + `brands/[id]/page.tsx`) and the run-ingest trigger weren't built this pass —
+> reviewing/approving, submissions, and payments all are.
 
 **Goal:** the professional admin panel CLAUDE.md §6/§10 describes — review, edit, add, approve
 ads, stats, run-ingest — replacing any need for an interactive bot.
@@ -411,54 +647,102 @@ flowchart TD
     D --> E["apps/admin/app/review/page.tsx (the queue)"]
     E --> F["apps/admin/app/brands/page.tsx + brands/[id]/page.tsx"]
     F --> G["apps/admin/app/submissions/page.tsx"]
-    G --> H["apps/admin/app/ads/page.tsx"]
+    G --> H["apps/admin/app/payments/page.tsx (unified payment_verifications queue)"]
     H --> I["apps/admin/app/ingest/page.tsx"]
     I --> J["apps/admin/app/page.tsx (dashboard/stats)"]
 ```
 
 | # | File | Responsible for | Libraries | Hints |
 |---|---|---|---|---|
-| 1 | `packages/db/queries/admin.ts` | `getBrandsByStatus(status)`, `getSubmissions()`, `getWaitlistedAds()`, `getIngestionRuns()`, `getPageViewStats()` | `pg` | The only place that's allowed to read `review`/`archived` rows — everything public-facing stays on `queries/brands.ts`. |
+| 1 | `packages/db/queries/admin.ts` | `getBrandsByStatus(status)`, `getSubmissions()`, `getIngestionRuns()`, `getPageViewStats()` | `pg` | The only place that's allowed to read `review`/`archived` rows — everything public-facing stays on `queries/brands.ts`. Payment-related reads live in `queries/payments.ts` instead (Phase 5), kept separate since it's shared by 3 different kinds of paid surface. |
 | 2 | `apps/admin/package.json` + `middleware.ts` | Own Next.js app, gated at the middleware level | `next`, `react` | Same `transpilePackages` requirement as `apps/web`. `middleware.ts` checks a session cookie on every request except `/login`. |
 | 3 | `apps/admin/lib/auth.ts` + `app/login/page.tsx` + `api/auth/route.ts` | Single shared-password login, sets a signed cookie compared against `ADMIN_SESSION_SECRET` | Node's built-in `crypto` (timing-safe compare) | Start with one shared password — real per-user auth is a real upgrade later, not launch-blocking as long as the secret is strong and never logged. |
-| 4 | `apps/admin/lib/actions.ts` | Server actions: `approveBrand`, `archiveBrand`, `updateBrand`, `approveAd`, `convertSubmission` | Next.js Server Actions, `@startup-atlas/db` | Every action re-validates status transitions server-side (e.g. can't "approve" something already `archived` without an explicit override) — this is the data-trust gate, don't let the UI be the only check. |
+| 4 | `apps/admin/lib/actions.ts` | Server actions: `approveBrand`, `archiveBrand`, `updateBrand`, `convertSubmission`, `approvePaymentVerification`, `rejectPaymentVerification` | Next.js Server Actions, `@startup-atlas/db` | Every action re-validates status transitions server-side — this is the data-trust gate, don't let the UI be the only check. `approvePaymentVerification` is the one that matters most now: it flips `payment_verifications.status → 'approved'` **and**, based on `kind`, flips the linked `ad_bookings`/`subscriptions`/`connect_requests` row to its paid state, in one transaction — never approve the verification without also flipping the thing it's verifying. |
 | 5 | `app/review/page.tsx` | The review queue — brands where `status = 'review'`, Approve/Edit/Archive per row | — | This is the single most important admin screen — it's what turns `review` rows into public `published`/`probable` ones. Show the score breakdown next to each row so approval is an informed decision, not a guess. |
 | 6 | `app/brands/page.tsx` + `brands/[id]/page.tsx` | Bulk browse/search across all brands regardless of status; full edit form on the detail page | — | This is where a human corrects what the pipeline got wrong (bad geocode, wrong sector) — every field the pipeline writes should be editable here. |
 | 7 | `app/submissions/page.tsx` | Review public submissions from `/submit`, convert to a real brand row or reject | — | "Convert" should pre-fill a new/edit brand form from the submission's `raw` JSON rather than making the admin retype everything. |
-| 8 | `app/ads/page.tsx` | Approve `ad_bookings` where `status = 'waitlisted'` → `live` | — | Manual step matches Phase 5's manual-UPI ad flow — this is where a payment received outside the app gets reflected in the DB. |
+| 8 | `app/payments/page.tsx` | **The one screen for every pending payment** — `payment_verifications` where `status = 'pending'`, regardless of `kind` (ad booking, subscription, connect request) | `queries/payments.ts` | Show `kind`, `amount_inr`, `transaction_id`, `payer_contact`, and (if present) `screenshot_url` per row — that's everything needed to cross-check against your own UPI app's transaction history before approving. Reject with a reason (`notes`) so the payer's follow-up email writes itself. |
 | 9 | `app/ingest/page.tsx` | "Run ingest" trigger | — | Vercel serverless functions can't run a long scraping job inline — this button should call a webhook that queues the job for the pipeline machine (or trigger a GitHub Actions `workflow_dispatch`, see Phase 7), not attempt to scrape from within the request. |
-| 10 | `app/page.tsx` | Dashboard — review backlog count, recent `ingestion_runs`, basic `page_views` stats | `queries/admin.ts` | This is the free first-party stats view CLAUDE.md §10 describes — it doesn't need PostHog to be useful. |
+| 10 | `app/page.tsx` | Dashboard — review backlog count, pending payment count, recent `ingestion_runs`, basic `page_views` stats | `queries/admin.ts`, `queries/payments.ts` | This is the free first-party stats view CLAUDE.md §10 describes — it doesn't need PostHog to be useful. |
 
 **Done-when:** an admin can log in, see the 124 `review` brands from Phase 1, approve one, and it
 appears on the public map within the snapshot's cache window.
 
 ---
 
-## Phase 5 — Monetization: Ads (manual UPI first)
+## Phase 5 — Monetization: Ads (QR + manual verification) ✅ DONE
 
-**Goal:** the first revenue surface live — boosted pins, sponsor tiles, banners — booked manually
-before any payment gateway integration.
+> **Status:** built and verified end-to-end via a real (then cleaned-up) test transaction: booked
+> an ad → submitted a fake UTR → landed in `/admin/payments` → approved → `ad_bookings` flipped to
+> `live`. One security fix made during this pass: the amount is now **always looked up
+> server-side** (`AD_PRICING`, shared between the form and the API route) rather than trusted from
+> the client — the original sketch didn't specify this and it's a real gap for anything
+> payment-adjacent. `public/upi-qr.png` doesn't exist yet — `PaymentQR.tsx` falls back to a
+> placeholder graphic until you drop your real UPI QR export in.
+
+**Goal:** the first revenue surface live — boosted pins, sponsor tiles, banners — paid via your
+own UPI QR code, verified by hand, no payment gateway anywhere in the path.
+
+**Run this first** — `payment_verifications` is the shared table every paid surface in this plan
+(ads now, subscriptions in Phase 8, paid connect in Phase 9) writes to. One migration, reused
+three times:
+
+```sql
+-- packages/db/migrations/0000_payment_verifications.sql
+CREATE TYPE payment_verification_kind   AS ENUM ('ad_booking','subscription','connect_request');
+CREATE TYPE payment_verification_status AS ENUM ('pending','approved','rejected');
+
+CREATE TABLE payment_verifications (
+  id BIGSERIAL PRIMARY KEY,
+  kind payment_verification_kind NOT NULL,
+  reference_id TEXT NOT NULL,        -- id of the ad_bookings/subscriptions/connect_requests row
+  amount_inr INT NOT NULL,
+  payer_name TEXT,
+  payer_contact TEXT NOT NULL,       -- email or phone — how you reach them if it doesn't check out
+  transaction_id TEXT NOT NULL,      -- the UPI/UTR reference number they typed in
+  screenshot_url TEXT,               -- optional proof upload
+  status payment_verification_status DEFAULT 'pending',
+  reviewed_at TIMESTAMPTZ,
+  notes TEXT,                        -- admin's rejection reason, if any
+  created_at TIMESTAMPTZ DEFAULT now());
+CREATE INDEX payment_verifications_status_idx   ON payment_verifications(status);
+CREATE INDEX payment_verifications_kind_ref_idx ON payment_verifications(kind, reference_id);
+```
 
 ```mermaid
 flowchart TD
-    A["packages/db/queries/ads.ts (NEW)"] --> B["apps/web/components/SponsorBar.tsx + AdSlot.tsx"]
-    B --> C["apps/web/app/advertise/page.tsx + forms/AdvertiseForm.tsx"]
-    C --> D["apps/web/app/api/advertise/route.ts"]
+    A["packages/db/queries/ads.ts (NEW)"] --> B["packages/db/queries/payments.ts (NEW — shared)"]
+    B --> C["apps/web/components/SponsorBar.tsx + AdSlot.tsx"]
+    C --> D["apps/web/components/PaymentQR.tsx (shared)"]
+    D --> E["apps/web/components/forms/PaymentVerificationForm.tsx (shared)"]
+    E --> F["apps/web/app/advertise/page.tsx + forms/AdvertiseForm.tsx"]
+    F --> G["apps/web/app/api/advertise/route.ts"]
+    G --> H["apps/web/app/api/payment-verification/route.ts (shared)"]
 ```
 
 | # | File | Responsible for | Libraries | Hints |
 |---|---|---|---|---|
 | 1 | `packages/db/queries/ads.ts` | `getLiveAds(cityId, kind)` — rows where `status = 'live'` and within `starts_at`/`ends_at` | `pg` | Filter the date window in SQL, not in the component — an expired ad should never even reach the page. |
-| 2 | `components/SponsorBar.tsx` + `AdSlot.tsx` | Render live ads (FR-8) | — | If there are zero live ads, render nothing — never show an empty placeholder box. |
-| 3 | `app/advertise/page.tsx` + `forms/AdvertiseForm.tsx` | Booking form (kind, dates, contact email) | React form, `zod` | Same honeypot pattern as `SubmitForm.tsx`. |
-| 4 | `app/api/advertise/route.ts` | Inserts an `ad_bookings` row, `status = 'waitlisted'` | `zod`, `@startup-atlas/db` | Manual UPI: the page tells the advertiser "we'll email you a payment link" — Phase 4's `app/ads/page.tsx` is where the admin flips it to `live` once payment is confirmed. |
+| 2 | `packages/db/queries/payments.ts` | `insertPaymentVerification(...)`, `getPendingVerifications()`, `approveVerification(id)`, `rejectVerification(id, notes)` | `pg` | Shared by every paid surface — write it once here, not once per feature. `approveVerification` is a transaction: flip `payment_verifications.status` **and** the linked row's status together (see Phase 4 row 4). |
+| 3 | `components/SponsorBar.tsx` + `AdSlot.tsx` | Render live ads (FR-8) | — | If there are zero live ads, render nothing — never show an empty placeholder box. |
+| 4 | `components/PaymentQR.tsx` | Shows your UPI QR code image + the exact amount + a short "pay, then fill the form below" instruction | — | The QR image itself is a static asset (`public/upi-qr.png`) — no env var, no API. Reused as-is in Phase 8 (subscriptions) and Phase 9 (connect). |
+| 5 | `components/forms/PaymentVerificationForm.tsx` | Shared form: payer name, contact (email/phone), transaction id (UTR), optional screenshot upload | React form, `zod` | Takes `kind` + `referenceId` + `amountInr` as props so `AdvertiseForm`, the subscription flow, and `ConnectModal` (Phase 9) can all embed it identically. Screenshot upload is optional — a UTR alone is usually enough to cross-check in your own UPI app; wire Cloudflare R2 for the upload only if you want the extra proof. |
+| 6 | `app/advertise/page.tsx` + `forms/AdvertiseForm.tsx` | Booking form (kind, dates, contact email) → then `PaymentQR` + `PaymentVerificationForm` | React form, `zod` | Same honeypot pattern as `SubmitForm.tsx`. Two-step: book first (creates the `ad_bookings` row), then pay-and-verify. |
+| 7 | `app/api/advertise/route.ts` | Inserts an `ad_bookings` row, `status = 'waitlisted'` | `zod`, `@startup-atlas/db` | Returns the new row's `id` — the frontend needs it as `referenceId` for the verification form that follows. |
+| 8 | `app/api/payment-verification/route.ts` | Shared endpoint: validates the form, calls `insertPaymentVerification` | `zod`, `@startup-atlas/db` | One route for all three kinds — `kind` comes from the request body, not the URL. This is the only new "payment" code in the whole plan; everything downstream is just Postgres rows and an admin approving them. |
 
-**Done-when:** a real ad booking lands in `ad_bookings`, an admin approves it in Phase 4's admin
-app, and it renders on the live site.
+**Done-when:** a real ad booking lands in `ad_bookings` as `waitlisted`, a matching
+`payment_verifications` row lands as `pending`, an admin approves it in Phase 4's
+`app/payments/page.tsx`, and the ad renders live on the site.
 
 ---
 
-## Phase 6 — Observability, Legal, Deploy — Launch
+## Phase 6 — Observability, Legal, Deploy — Launch (partially done)
+
+> **Status:** `sitemap.ts`, `robots.ts`, `privacy/page.tsx`, and `terms/page.tsx` are built and
+> verified (all return 200; sitemap correctly includes only published brands). `lib/analytics.ts`,
+> `packages/config/src/env.ts`, the observability wiring, and the actual Vercel deploy are not
+> done yet — this phase is still the launch gate.
 
 **Goal:** the product is live on a real URL, crawlable, legally minimal-compliant, and you'd know
 within minutes if it broke.
@@ -524,53 +808,76 @@ without manual intervention, and Mumbai has real data too.
 
 ---
 
-## Phase 8 — Self-Serve Ad Checkout + Recruiter Subscriptions
+## Phase 8 — Recruiter Subscriptions (QR + manual verification)
 
-**Goal:** move ads from manual-UPI to real self-serve payment, and add a recurring-revenue tier
-for recruiters.
+**Goal:** a recurring-revenue tier for recruiters — same QR + verification mechanism as Phase 5,
+extended to a monthly renewal instead of a one-off booking.
+
+```sql
+-- packages/db/migrations/0001_recruiter_subscriptions.sql
+CREATE TABLE recruiters (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  email TEXT UNIQUE NOT NULL,
+  brand_id UUID REFERENCES brands(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ DEFAULT now());
+
+CREATE TYPE subscription_status AS ENUM ('trialing','active','past_due','cancelled');
+
+CREATE TABLE subscriptions (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  recruiter_id UUID NOT NULL REFERENCES recruiters(id) ON DELETE CASCADE,
+  plan TEXT NOT NULL,
+  status subscription_status DEFAULT 'trialing',
+  current_period_end TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT now());
+CREATE INDEX subscriptions_recruiter_idx ON subscriptions(recruiter_id);
+CREATE INDEX subscriptions_status_idx    ON subscriptions(status);
+```
 
 ```mermaid
 flowchart TD
-    A["apps/web/lib/payments.ts"] --> B["apps/web/app/api/webhooks/razorpay/route.ts"]
-    B --> C["apps/web/app/advertise/page.tsx (upgrade to checkout button)"]
-    C --> D["packages/db/migrations/0001_recruiter_subscriptions.sql (NEW schema)"]
-    D --> E["apps/web/app/api/subscribe/route.ts (planned)"]
+    A["packages/db/migrations/0001_recruiter_subscriptions.sql"] --> B["packages/db/queries/recruiters.ts (NEW)"]
+    B --> C["apps/web/app/api/subscribe/route.ts"]
+    C --> D["apps/web/components/PaymentQR.tsx + forms/PaymentVerificationForm.tsx (reused from Phase 5)"]
+    D --> E["services/pipeline/src/refresh-subscriptions.ts (expiry check)"]
 ```
 
 | # | File | Responsible for | Libraries | Hints |
 |---|---|---|---|---|
-| 1 | `apps/web/lib/payments.ts` | Razorpay Orders API helpers (simple checkout, not Route escrow — that's Phase 9) | `razorpay` npm SDK | This is a plain payment, not a split/escrow — much simpler than what Phase 9 needs. |
-| 2 | `app/api/webhooks/razorpay/route.ts` | Verifies webhook signature, marks the matching `ad_bookings` row `live` on payment success | `razorpay` (signature verification helper) | Always verify the webhook signature — never trust an unauthenticated POST to flip a paid status. |
-| 3 | `app/advertise/page.tsx` | Upgrade from "we'll email you" to an actual Razorpay checkout button | Razorpay Checkout.js (client-side) | Keep the manual-UPI path as a fallback link — don't force checkout if a customer prefers to pay another way. |
-| 4 | `packages/db/migrations/0001_recruiter_subscriptions.sql` | **New schema** — CLAUDE.md's shipped schema doesn't define recruiter/subscription tables yet, this is genuinely new | — | Sketch: `recruiters (id, email, brand_id FK, razorpay_customer_id)`, `subscriptions (id, recruiter_id FK, plan, status, razorpay_subscription_id, current_period_end)`. Write this as a real migration file, not a schema.sql edit — schema.sql is the "day 0" snapshot, everything after goes in `migrations/`. |
-| 5 | `app/api/subscribe/route.ts` | Creates a Razorpay subscription, links it to a `recruiters` row | `razorpay` SDK | Gate whatever subscriber-only feature you build (e.g. a recruiter dashboard) behind `subscriptions.status = 'active'`. |
+| 1 | `packages/db/migrations/0001_recruiter_subscriptions.sql` | New schema — CLAUDE.md's shipped schema doesn't define recruiter/subscription tables yet | — | Run once, when you reach this phase — not before. No gateway fields needed (no `razorpay_customer_id` etc.) since there's no gateway. |
+| 2 | `packages/db/queries/recruiters.ts` | `createRecruiter`, `createSubscription`, `renewSubscription`, `getActiveSubscription(recruiterId)` | `pg` | `subscriptions.status = 'active'` is the single gate every subscriber-only feature checks. |
+| 3 | `app/api/subscribe/route.ts` | Creates a `recruiters` row (if new) + a `subscriptions` row (`status = 'trialing'`) | `zod`, `@startup-atlas/db` | Same shape as `app/api/advertise/route.ts` — book first, then the shared `PaymentQR` + `PaymentVerificationForm` (Phase 5) collects the transaction id against `kind = 'subscription'`. Admin approval (Phase 4) flips it to `active` and sets `current_period_end` (e.g. `now() + interval '30 days'`). |
+| 4 | `services/pipeline/src/refresh-subscriptions.ts` | Daily check: any `active` subscription past its `current_period_end` moves to `past_due` | `@startup-atlas/db` | Same cron mechanism as Phase 7's `refresh-jobs`/`refresh-news` — a renewal is just "pay again, submit a new transaction id," so this step only needs to *detect* expiry, not chase payment automatically. |
 
-**Done-when:** an advertiser can pay through checkout without you manually flipping a status, and
-at least one recruiter subscription can be created and verified end-to-end.
+**Done-when:** a recruiter can submit a subscription request, pay via the QR, get approved in
+Phase 4, and a subscriber-only feature correctly checks `subscriptions.status = 'active'`.
 
 ---
 
-## Phase 9 — Paid Connect (Escrow)
+## Phase 9 — Paid Connect (QR + manual hold)
 
-**Goal:** the intro-call/resume-review/referral flow from CLAUDE.md §4, money held in escrow via
-Razorpay Route until the engineer delivers.
+**Goal:** the intro-call/resume-review/referral flow from CLAUDE.md §4 — without a payment
+gateway, "escrow" becomes an honest, admin-mediated hold: you personally don't release the
+referrer's payout until delivery is confirmed, tracked as an explicit status, not automated by a
+processor.
 
 ```mermaid
 flowchart TD
-    A["apps/web/lib/payments.ts (extend: Route transfer-on-hold)"] --> B["apps/web/app/api/connect/route.ts"]
-    B --> C["apps/web/components/forms/ConnectModal.tsx"]
-    C --> D["apps/web/app/api/webhooks/razorpay/route.ts (extend: release/refund)"]
+    A["apps/web/app/api/connect/route.ts"] --> B["apps/web/components/forms/ConnectModal.tsx"]
+    B --> C["apps/web/components/PaymentQR.tsx + forms/PaymentVerificationForm.tsx (reused from Phase 5)"]
+    C --> D["apps/admin/app/connect/page.tsx (mark delivered → release)"]
 ```
 
 | # | File | Responsible for | Libraries | Hints |
 |---|---|---|---|---|
-| 1 | `lib/payments.ts` (extend) | Creates a Razorpay order with the transfer **on hold** (escrow), targeting a linked-account (the referrer/engineer) | `razorpay` SDK, Route API | `connect_requests` already exists in the schema (CLAUDE.md §5) — this phase is mostly wiring, not new tables. Requires Razorpay Route KYC to be approved first (start that early — CLAUDE.md §15 flags activation as taking days). |
-| 2 | `app/api/connect/route.ts` | Creates a `connect_requests` row, kicks off the escrow order | `zod`, `@startup-atlas/db`, `razorpay` | `status` moves `requested → paid → delivered → released` (or `refunded`) — model this as an explicit state machine, not a free-text field you forget to constrain. |
-| 3 | `components/forms/ConnectModal.tsx` | The "request an intro" UI on a company profile | React | If Route KYC isn't done yet, this can launch as a waitlist form (CLAUDE.md's own cut-line) — same component, just skip the payment step until KYC clears. |
-| 4 | `app/api/webhooks/razorpay/route.ts` (extend) | Handles transfer release on delivery confirmation, and auto-refund if no delivery within N days | `razorpay` SDK | "No delivery in N days → auto refund" (CLAUDE.md §4) needs a scheduled check — a GitHub Actions cron hitting a `route.ts` endpoint works, same mechanism as Phase 7's maintenance jobs. |
+| 1 | `app/api/connect/route.ts` | Creates a `connect_requests` row, `status = 'requested'` | `zod`, `@startup-atlas/db` | `connect_requests` already exists in the schema (CLAUDE.md §5) — this phase is mostly wiring, no new tables. Drop the unused `route_transfer_id` column's role — it's dead weight now (harmless to leave in place, just never populated). |
+| 2 | `components/forms/ConnectModal.tsx` | The "request an intro" UI on a company profile → then `PaymentQR` + `PaymentVerificationForm` against `kind = 'connect_request'` | React | Same two-step pattern as Phase 5/8: request first, pay-and-verify second. |
+| 3 | `apps/admin/app/connect/page.tsx` | Admin's view of the state machine: `requested → paid (verified) → delivered → released` (or `refunded`) | `@startup-atlas/db` | This is where the honesty matters: **you** mark `delivered` only once the referrer/engineer actually did the intro, and **you** send the referrer's commission manually (UPI, bank transfer, whatever) before marking `released`. No automated split — be upfront with both sides that payouts are manual for now. |
+| 4 | `services/pipeline/src/refresh-connect.ts` | Daily check: any `paid` request with no `delivered` after N days gets flagged for manual refund | `@startup-atlas/db` | "No delivery in N days → refund" (CLAUDE.md §4) can't auto-refund without a gateway — this step surfaces the flag in Phase 4's dashboard so you refund by hand, it doesn't refund for you. |
 
-**Done-when:** one real paid-connect request completes the full state machine — requested, paid,
-delivered, released — without manual DB surgery.
+**Done-when:** one real paid-connect request completes the full state machine —
+requested → paid → delivered → released — with every transition visible and auditable in the
+admin app, even though the money itself moved by hand.
 
 ---
 
@@ -640,6 +947,9 @@ finds the path — verified with real data, not synthetic test rows, before any 
   as a public office location.
 - **SQL stays in `packages/db`** — every other package/app calls typed functions, never writes a
   raw query against the production database directly.
+- **No paid status flips itself** — `ad_bookings`, `subscriptions`, and `connect_requests` only
+  ever move to their paid/live state through `approvePaymentVerification` (Phase 4), which a human
+  triggers after checking a real transaction id. No auto-approve path, ever.
 
 These are what make the product different from the incumbent it's targeting — everything else in
 this plan is negotiable in order or scope; these are not.

@@ -14,6 +14,7 @@ export type CitySnapshot = {
     areas: string[];
     stages: string[];
     sectors: string[];
+    kinds: string[];
   };
 };
 
@@ -28,11 +29,13 @@ export async function getCitySnapshot(cityId: string): Promise<CitySnapshot | nu
   const areas = new Set<string>();
   const stages = new Set<string>();
   const sectors = new Set<string>();
+  const kinds = new Set<string>();
 
   for (const brand of brands) {
     if (brand.area) areas.add(brand.area);
     if (brand.stage) stages.add(brand.stage);
     if (brand.sector) sectors.add(brand.sector);
+    kinds.add(brand.kind);
   }
 
   return {
@@ -42,6 +45,7 @@ export async function getCitySnapshot(cityId: string): Promise<CitySnapshot | nu
       areas: [...areas].sort(),
       stages: [...stages].sort(),
       sectors: [...sectors].sort(),
+      kinds: [...kinds].sort(),
     },
   };
 }

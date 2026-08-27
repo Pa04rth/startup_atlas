@@ -1,0 +1,38 @@
+import { SubmitForm } from "@/components/forms/SubmitForm";
+
+export const metadata = { title: "Submit a company — Startup Atlas" };
+
+const infoRows = [
+  { icon: "🏙️", label: "Any Pune or Mumbai company" },
+  { icon: "🔍", label: "Reviewed by a human, not auto-published" },
+  { icon: "🔒", label: "Your email is for follow-up only, never shown" },
+];
+
+export default function SubmitPage() {
+  return (
+    <main className="min-h-screen bg-gradient-to-br from-emerald-950 via-emerald-900 to-teal-950 px-6 py-16">
+      <div className="mx-auto grid max-w-4xl gap-10 md:grid-cols-[1fr_1.1fr] md:items-start">
+        <div className="text-white">
+          <h1 className="font-serif text-4xl leading-tight tracking-tight">Submit or claim a company</h1>
+          <p className="mt-3 text-emerald-100/80">
+            Know a startup that's not on the map yet? Add it — or claim your own company's listing to keep it
+            accurate.
+          </p>
+
+          <div className="mt-8 space-y-3">
+            {infoRows.map((row) => (
+              <div key={row.label} className="flex items-center gap-3 text-sm text-emerald-50/90">
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/10 text-base">
+                  {row.icon}
+                </span>
+                {row.label}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <SubmitForm />
+      </div>
+    </main>
+  );
+}

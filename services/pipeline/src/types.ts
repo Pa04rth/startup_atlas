@@ -1,12 +1,20 @@
 import type { LocPrecision, ReviewStatus } from "@startup-atlas/core";
 
 // What a source collector returns — untouched, source-shaped data.
+// logoUrl/foundedYear are optional: most sources don't have them (fall back
+// to services/pipeline/src/lib/logos.ts's domain-based fetch, and to
+// unknown founding year), but a source that already has a real hosted logo
+// or a stated founding year (e.g. sources/inc42.ts) should pass it straight
+// through rather than have it re-guessed later.
 export type RawRecord = {
   name: string;
   website?: string;
   tagline?: string;
   description?: string;
   address?: string;
+  logoUrl?: string;
+  foundedYear?: number;
+  sector?: string;
   sourceUrl: string;
   sourceName: string;
 };
@@ -20,6 +28,9 @@ export type NormalizedRecord = {
   tagline?: string;
   description?: string;
   address?: string;
+  logoUrl?: string;
+  foundedYear?: number;
+  sector?: string;
   sourceUrl: string;
   sourceName: string;
 };

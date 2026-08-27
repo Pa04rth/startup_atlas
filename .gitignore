@@ -7,3 +7,15 @@ dist/
 *.log
 .DS_Store
 Thumbs.db
+
+# PMTiles build pipeline — large binaries, never commit. Rebuild locally via
+# infra/pmtiles/README.md, or host the .pmtiles output on R2/S3 in production.
+infra/pmtiles/build/
+apps/web/public/tiles/*.pmtiles
+
+# Cached logos (fetched once by services/pipeline/src/lib/logos.ts — rerun
+# `pnpm --filter services-pipeline run cache-logos` to regenerate) and
+# user-uploaded logos from the submit form. Neither belongs in git; move
+# both to R2 before deploying (see infra/pmtiles/README.md for the pattern).
+apps/web/public/logos/
+apps/web/public/uploads/

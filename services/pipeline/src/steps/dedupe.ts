@@ -18,6 +18,9 @@ export function dedupe(records: NormalizedRecord[]): NormalizedRecord[] {
       tagline: existing.tagline ?? record.tagline,
       description: existing.description ?? record.description,
       address: existing.address ?? record.address,
+      logoUrl: existing.logoUrl ?? record.logoUrl,
+      foundedYear: existing.foundedYear ?? record.foundedYear,
+      sector: existing.sector ?? record.sector,
     });
   }
 

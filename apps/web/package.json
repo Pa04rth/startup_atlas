@@ -14,6 +14,7 @@
     "@startup-atlas/db": "workspace:*",
     "maplibre-gl": "^4.7.0",
     "next": "^15.0.0",
+    "pmtiles": "^3.2.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "zod": "^3.23.0"

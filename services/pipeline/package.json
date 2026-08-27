@@ -6,6 +6,7 @@
   "scripts": {
     "start": "tsx --env-file=../../.env src/run.ts",
     "refresh-news": "tsx --env-file=../../.env src/refresh-news.ts",
+    "cache-logos": "tsx --env-file=../../.env src/cache-logos.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

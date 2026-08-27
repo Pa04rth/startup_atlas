@@ -10,6 +10,7 @@ export type BrandListItem = {
   id: string;
   slug: string;
   name: string;
+  kind: "startup" | "vc";
   tagline: string | null;
   sector: string | null;
   stage: string | null;
@@ -27,6 +28,7 @@ const LIST_ROW_TO_ITEM = (r: Record<string, unknown>): BrandListItem => ({
   id: r.id as string,
   slug: r.slug as string,
   name: r.name as string,
+  kind: r.kind as "startup" | "vc",
   tagline: r.tagline as string | null,
   sector: r.sector as string | null,
   stage: r.stage as string | null,
@@ -44,7 +46,7 @@ const LIST_ROW_TO_ITEM = (r: Record<string, unknown>): BrandListItem => ({
 export async function getPublishedBrands(cityId: string): Promise<BrandListItem[]> {
   const pool = getPool();
   const { rows } = await pool.query(
-    `select b.id, b.slug, b.name, b.tagline, b.sector, b.stage, b.tags, b.hiring, b.logo_url,
+    `select b.id, b.slug, b.name, b.kind, b.tagline, b.sector, b.stage, b.tags, b.hiring, b.logo_url,
             b.status, o.area,
             ST_Y(o.geom) as lat, ST_X(o.geom) as lng, o.precision
      from brands b
@@ -69,7 +71,7 @@ export type BrandProfile = BrandListItem & {
 export async function getBrandBySlug(cityId: string, slug: string): Promise<BrandProfile | null> {
   const pool = getPool();
   const { rows } = await pool.query(
-    `select b.id, b.slug, b.name, b.tagline, b.description, b.sector, b.stage, b.tags, b.hiring,
+    `select b.id, b.slug, b.name, b.kind, b.tagline, b.description, b.sector, b.stage, b.tags, b.hiring,
             b.logo_url, b.status, b.website, b.domain, b.founded_year, b.lifecycle,
             b.last_verified_at, o.area, o.address,
             ST_Y(o.geom) as lat, ST_X(o.geom) as lng, o.precision
