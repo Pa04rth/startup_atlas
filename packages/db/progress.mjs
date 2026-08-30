@@ -1,0 +1,11 @@
+import fs from 'node:fs';
+import pg from 'pg';
+const env = fs.readFileSync('../../.env','utf8');
+const url = env.split('\n').find(l=>l.startsWith('DATABASE_URL=')).slice(13).trim().replace(/^["']|["']$/g,'');
+const c = new pg.Client({ connectionString: url });
+await c.connect();
+const r = await c.query("select status::text, count(*)::int n from brands group by 1 order by 1");
+console.log('brands by status:', JSON.stringify(r.rows));
+const p = await c.query("select precision::text, count(*)::int n from offices group by 1 order by 2 desc");
+console.log('office precision:', JSON.stringify(p.rows));
+await c.end();

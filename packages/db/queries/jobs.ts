@@ -16,6 +16,49 @@ export type JobPosting = {
   expiresAt: string | null;
 };
 
+export type BrandJobPosting = {
+  id: number;
+  title: string | null;
+  track: string | null;
+  seniority: string | null;
+  fresherFriendly: boolean;
+  applyUrl: string | null;
+  isWalkin: boolean;
+  walkinAt: string | null;
+  venue: string | null;
+  sourceUrl: string | null;
+  postedAt: string | null;
+};
+
+// For a single company's profile page — includes source_url/posted_at
+// (getOpenJobs's city-wide feed doesn't need either) so the page can show
+// exactly where a listing came from and let a real "refreshed on X" claim
+// stay honest rather than implied.
+export async function getJobsForBrand(brandId: string): Promise<BrandJobPosting[]> {
+  const pool = getPool();
+  const { rows } = await pool.query(
+    `select id, title, track, seniority, fresher_friendly, apply_url,
+            is_walkin, walkin_at, venue, source_url, posted_at
+     from job_postings
+     where brand_id = $1 and (expires_at is null or expires_at > now())
+     order by is_walkin desc, posted_at desc nulls last`,
+    [brandId]
+  );
+  return rows.map((r) => ({
+    id: r.id,
+    title: r.title,
+    track: r.track,
+    seniority: r.seniority,
+    fresherFriendly: r.fresher_friendly,
+    applyUrl: r.apply_url,
+    isWalkin: r.is_walkin,
+    walkinAt: r.walkin_at,
+    venue: r.venue,
+    sourceUrl: r.source_url,
+    postedAt: r.posted_at,
+  }));
+}
+
 // Walk-ins first — that's the feature that beats the incumbent's job stubs.
 export async function getOpenJobs(cityId: string): Promise<JobPosting[]> {
   const pool = getPool();

@@ -1,0 +1,44 @@
+name: Refresh jobs
+
+# Maintenance-phase job (CLAUDE.md §12/§7: "jobs = refresh_jobs re-visits
+# careers pages, upserts new, expires unseen"), same shape as
+# refresh-news.yml. Re-checks every published/probable brand's own website
+# for a Greenhouse/Lever board (services/pipeline/src/lib/ats.ts) and
+# upserts job_postings. Current real-world hit rate is low (most brands in
+# this dataset don't expose an unbranded ATS board link — see the comment
+# at the top of lib/ats.ts) — this still runs daily so any brand that does
+# add one, or any newly-ingested brand that has one, starts showing real
+# jobs automatically with zero manual work. Never touches brands/offices.
+
+on:
+  schedule:
+    - cron: "30 3 * * *" # 03:30 UTC ≈ 09:00 IST daily — after refresh-news
+  workflow_dispatch: {} # manual "Run workflow" button for on-demand refreshes
+
+jobs:
+  refresh-jobs:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        city: [pune, mumbai]
+      fail-fast: false # a bad run for one city shouldn't cancel the other
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Refresh jobs for ${{ matrix.city }}
+        run: pnpm --filter services-pipeline run refresh-jobs ${{ matrix.city }}
+        env:
+          # Repo Settings → Secrets and variables → Actions → New repository
+          # secret. Use the same Neon/Supabase pooler URL as the local .env.
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}

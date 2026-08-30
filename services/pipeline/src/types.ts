@@ -59,3 +59,20 @@ export type NewsItem = {
   source: string;
   publishedAt: string | null;
 };
+
+// What lib/ats.ts returns for one brand — a real listing pulled straight
+// from that company's own Greenhouse/Lever board, never fabricated. track/
+// seniority/fresherFriendly are inferred from the title text (see
+// lib/job_classify.ts) since neither ATS reliably exposes a clean,
+// consistent taxonomy across companies — an inference, not a sourced fact,
+// which is why it's kept soft (a filter tag) rather than treated with the
+// same trust weight as the title/applyUrl themselves.
+export type JobItem = {
+  title: string;
+  track: string;
+  seniority: string;
+  fresherFriendly: boolean;
+  applyUrl: string;
+  sourceUrl: string;
+  postedAt: string | null;
+};

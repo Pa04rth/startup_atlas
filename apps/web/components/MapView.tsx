@@ -8,6 +8,7 @@ import { Protocol } from "pmtiles";
 import type { CityConfig } from "@startup-atlas/config";
 import type { BrandListItem } from "@startup-atlas/db";
 import { getStyle } from "@/lib/map/style";
+import { colorFor } from "@/lib/avatarColor";
 
 const PRECISE = new Set(["exact", "building", "street"]);
 const SOURCE_ID = "brands";
@@ -23,6 +24,15 @@ function ensurePmtilesProtocol() {
   pmtilesRegistered = true;
 }
 
+// Deterministic pseudo-random in [0,1), seeded by a string — same brand
+// always gets the same "random" offset on every render (no jumping around
+// between renders/filter changes), without needing to persist anything.
+function seededRandom(seed: string): number {
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) | 0;
+  return ((h >>> 0) % 100000) / 100000;
+}
+
 // Any two brands geocoded to the same fallback point — a shared city
 // centroid (synthetic/city precision), or just two companies in the same
 // named business park (area/locality precision, e.g. two tenants of the
@@ -30,11 +40,13 @@ function ensurePmtilesProtocol() {
 // identical points can never visually separate at any zoom, because
 // there's nowhere to zoom "into": this is what caused a "7" cluster to
 // expand and reveal only one clickable pin underneath. This groups brands
-// by exact coordinate and arranges every group of 2+ in a small ring around
-// their shared point — deterministic (same input -> same layout every
-// render, no jumping around) and it never changes what's shown as any
-// brand's precision anywhere; the badge and profile page still say exactly
-// what they said before, honestly. Two ring sizes: a wide one for
+// by exact coordinate and scatters every group of 2+ at a random-looking
+// (but deterministic) position within a small disc around their shared
+// point — an evenly-spaced ring was the first approach here, but pins
+// landing in a perfect circle reads as obviously synthetic, which is the
+// opposite of what this product is trying to signal. It never changes what
+// precision is shown for any brand; the badge and profile page still say
+// exactly what they said before, honestly. Two disc sizes: a wide one for
 // synthetic/city groups (we don't know the neighborhood at all, so a
 // visibly bigger spread doesn't overclaim anything) and a tight one for
 // area/locality groups (we know the real neighborhood, they're genuinely
@@ -58,10 +70,14 @@ function spreadOverlaps(brands: BrandListItem[]): Map<string, [number, number]> 
     }
     const wide = precision === "synthetic" || precision === "city";
     const baseRadius = wide ? 0.01 : 0.0035; // ~1.1km vs ~390m at this latitude
-    const radius = baseRadius + Math.min(group.length, 12) * (wide ? 0.0007 : 0.0003);
-    group.forEach((b, i) => {
-      const angle = (i / group.length) * 2 * Math.PI;
-      coordsById.set(b.id, [(lng as number) + radius * Math.cos(angle), (lat as number) + radius * Math.sin(angle)]);
+    const maxRadius = baseRadius + Math.min(group.length, 12) * (wide ? 0.0007 : 0.0003);
+    group.forEach((b) => {
+      const angle = seededRandom(`${b.id}:angle`) * 2 * Math.PI;
+      // sqrt of a uniform [0,1) sample spreads points evenly across the
+      // disc's *area* — without it, points bunch up near the center instead
+      // of filling the whole radius.
+      const r = maxRadius * Math.sqrt(seededRandom(`${b.id}:radius`));
+      coordsById.set(b.id, [(lng as number) + r * Math.cos(angle), (lat as number) + r * Math.sin(angle)]);
     });
   }
   return coordsById;
@@ -76,7 +92,15 @@ function spreadOverlaps(brands: BrandListItem[]): Map<string, [number, number]> 
 // favicon and a 512px one would otherwise look wildly different sizes).
 type BrandFeature = GeoJSON.Feature<
   GeoJSON.Point,
-  { slug: string; name: string; precise: boolean; icon?: string; iconScale?: number }
+  {
+    slug: string;
+    name: string;
+    precise: boolean;
+    icon?: string;
+    iconScale?: number;
+    initial: string;
+    avatarColor: string;
+  }
 >;
 
 function toFeatureCollection(
@@ -97,6 +121,11 @@ function toFeatureCollection(
             slug: b.slug,
             name: b.name,
             precise: PRECISE.has(b.precision ?? ""),
+            // Same fallback identity as CompanyLogo.tsx (grid/profile views):
+            // a badge colored from the name's hash, with its first letter —
+            // used here whenever no logo has loaded for this pin.
+            initial: b.name.charAt(0).toUpperCase(),
+            avatarColor: colorFor(b.name),
             ...(logo ? { icon: logo.iconId, iconScale: logo.scale } : {}),
           },
         };
@@ -205,18 +234,24 @@ export function MapView({
         clusterRadius: 46,
       });
 
-      // Soft colored glow behind the cluster bubble instead of a hard
-      // stroke — drawn first (bottom of the stack), bigger and blurred.
+      // Two-tone bullseye, both tones pastel/light — a broad light outer
+      // ring behind a smaller inner circle just a shade darker, never a
+      // saturated/dark fill (green = small, amber = large). Deliberately
+      // not a same-color blurred halo (an earlier version), which read as
+      // a single flat blob rather than a distinct ring, and deliberately
+      // not a dark inner circle either (also tried — read as too heavy).
       map.addLayer({
         id: "cluster-glow",
         type: "circle",
         source: SOURCE_ID,
         filter: ["has", "point_count"],
         paint: {
-          "circle-color": ["step", ["get", "point_count"], "#5fbf6f", 10, "#e8b93e"],
-          "circle-radius": ["+", ["step", ["get", "point_count"], 22, 10, 28, 30, 36], 8],
-          "circle-blur": 1,
-          "circle-opacity": 0.45,
+          // Vivid, not pale — a muted pastel version of these read as dull.
+          "circle-color": ["step", ["get", "point_count"], "#7ee08a", 10, "#ffc266"],
+          // +14 (was +8) for a visibly broader ring around the inner circle.
+          "circle-radius": ["+", ["step", ["get", "point_count"], 22, 10, 28, 30, 36], 14],
+          "circle-blur": 0.3,
+          "circle-opacity": 0.9,
         },
       });
       map.addLayer({
@@ -225,10 +260,9 @@ export function MapView({
         source: SOURCE_ID,
         filter: ["has", "point_count"],
         paint: {
-          // Flat tiered palette (green = small, amber = large) rather than
-          // one dark color for every size — reads at a glance which
-          // clusters are worth zooming into.
-          "circle-color": ["step", ["get", "point_count"], "#7ed389", 10, "#f2c94c"],
+          // One shade darker than the ring above, still bright/saturated —
+          // not a flat tiered "dark vs light" contrast, but not dull either.
+          "circle-color": ["step", ["get", "point_count"], "#4cc264", 10, "#ff9f40"],
           "circle-radius": ["step", ["get", "point_count"], 22, 10, 28, 30, 36],
         },
       });
@@ -238,8 +272,7 @@ export function MapView({
         source: SOURCE_ID,
         filter: ["has", "point_count"],
         layout: { "text-field": "{point_count_abbreviated}", "text-size": 14, "text-font": ["Noto Sans Regular"] },
-        // Dark text reads better than white on the lighter green/amber
-        // fills above.
+        // Dark text reads better than white now that both rings are pastel.
         paint: { "text-color": "#1f2a24" },
       });
 
@@ -290,7 +323,12 @@ export function MapView({
         filter: ["!", ["has", "point_count"]],
         paint: {
           "circle-radius": 18,
-          "circle-color": "#ffffff",
+          // White once a real logo has loaded (the icon needs a neutral
+          // backing), otherwise the brand's own fallback color — same
+          // per-name hashed palette as CompanyLogo.tsx, so a startup with no
+          // logo still reads as a distinct, identifiable badge instead of a
+          // blank white dot.
+          "circle-color": ["case", ["has", "icon"], "#ffffff", ["get", "avatarColor"]],
           "circle-stroke-width": 2,
           "circle-stroke-color": ["case", ["get", "precise"], "#0c7a5e", "#d99a3e"],
         },
@@ -318,7 +356,27 @@ export function MapView({
         },
       });
 
-      const clickableLayers = ["points", "point-logos"];
+      // Sits on top of the colored fallback badge (never on a real logo —
+      // filtered to exactly the pins point-logos skips) so a company with
+      // no logo shows its initial instead of a blank circle.
+      map.addLayer({
+        id: "point-initials",
+        type: "symbol",
+        source: SOURCE_ID,
+        filter: ["all", ["!", ["has", "point_count"]], ["!", ["has", "icon"]]],
+        layout: {
+          "text-field": ["get", "initial"],
+          "text-size": 15,
+          // "Noto Sans Bold" 404s on CARTO's glyph server (see style.ts) —
+          // "Open Sans Bold" is a variant confirmed to actually resolve there.
+          "text-font": ["Open Sans Bold"],
+          "text-allow-overlap": true,
+          "text-ignore-placement": true,
+        },
+        paint: { "text-color": "#ffffff" },
+      });
+
+      const clickableLayers = ["points", "point-logos", "point-initials"];
 
       map.on("click", clickableLayers, (e) => {
         const slug = e.features?.[0]?.properties?.slug as string | undefined;

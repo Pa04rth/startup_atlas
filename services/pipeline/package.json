@@ -6,7 +6,9 @@
   "scripts": {
     "start": "tsx --env-file=../../.env src/run.ts",
     "refresh-news": "tsx --env-file=../../.env src/refresh-news.ts",
+    "refresh-jobs": "tsx --env-file=../../.env src/refresh-jobs.ts",
     "cache-logos": "tsx --env-file=../../.env src/cache-logos.ts",
+    "import-curated": "tsx --env-file=../../.env src/import-curated.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -14,13 +16,14 @@
     "@startup-atlas/core": "workspace:*",
     "@startup-atlas/db": "workspace:*",
     "cheerio": "^1.0.0",
+    "exceljs": "^4.4.0",
     "pg": "^8.12.0",
     "rss-parser": "^3.13.0"
   },
   "devDependencies": {
-    "tsx": "^4.16.0",
     "@types/node": "^20.14.0",
     "@types/pg": "^8.11.0",
+    "tsx": "^4.16.0",
     "typescript": "^5.5.0"
   }
 }

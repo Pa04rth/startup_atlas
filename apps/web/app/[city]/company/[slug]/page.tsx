@@ -2,11 +2,12 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { cities } from "@startup-atlas/config";
-import { getBrandBySlug, getPublicContacts, getCompanyNews } from "@startup-atlas/db";
+import { getBrandBySlug, getPublicContacts, getCompanyNews, getJobsForBrand } from "@startup-atlas/db";
 import { PrecisionBadge } from "@/components/PrecisionBadge";
 import { VerifiedBadge } from "@/components/VerifiedBadge";
 import { ContactsList } from "@/components/ContactsList";
 import { NewsPanel } from "@/components/NewsPanel";
+import { JobsPanel } from "@/components/JobsPanel";
 import { CompanyLogo } from "@/components/CompanyLogo";
 
 type Params = { city: string; slug: string };
@@ -36,7 +37,11 @@ export default async function CompanyPage({ params }: { params: Promise<Params> 
   if (!data) notFound();
   const { brand, city } = data;
 
-  const [contacts, news] = await Promise.all([getPublicContacts(brand.id), getCompanyNews(brand.id)]);
+  const [contacts, news, jobs] = await Promise.all([
+    getPublicContacts(brand.id),
+    getCompanyNews(brand.id),
+    getJobsForBrand(brand.id),
+  ]);
 
   return (
     <main className="mx-auto max-w-3xl px-6 py-12">
@@ -90,6 +95,7 @@ export default async function CompanyPage({ params }: { params: Promise<Params> 
       </div>
 
       <div className="mt-10 space-y-8">
+        <JobsPanel jobs={jobs} cityName={city.name} brandName={brand.name} />
         <ContactsList contacts={contacts} />
         <NewsPanel articles={news} />
       </div>

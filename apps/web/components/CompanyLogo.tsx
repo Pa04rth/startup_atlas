@@ -1,16 +1,7 @@
 "use client";
 
 import { useState } from "react";
-
-const AVATAR_COLORS = [
-  "#0c7a5e", "#2f6ea6", "#b75811", "#7c3aed", "#be185d", "#0f766e", "#b91c1c", "#4338ca",
-];
-
-function colorFor(name: string): string {
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) | 0;
-  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
-}
+import { colorFor } from "@/lib/avatarColor";
 
 // A logo image that degrades to a visible initials avatar on failure,
 // instead of disappearing — a hotlinked favicon can fail for reasons that

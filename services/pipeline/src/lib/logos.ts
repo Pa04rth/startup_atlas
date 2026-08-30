@@ -43,8 +43,12 @@ export async function fetchAndCacheLogo(domain: string): Promise<string | null> 
   if (cached) return `/logos/${cached}`;
 
   try {
+    // A ~800-domain backfill runs these sequentially (see cache-logos.ts) —
+    // one hung request with no timeout would silently stall the entire run
+    // with zero output, indistinguishable from a crash.
     const res = await fetch(`https://icons.duckduckgo.com/ip3/${safeDomain}.ico`, {
       headers: { "User-Agent": "startup-atlas/0.1 (contact: parthsohaney04@gmail.com)" },
+      signal: AbortSignal.timeout(8000),
     });
     if (!res.ok) return null;
 

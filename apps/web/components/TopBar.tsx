@@ -54,7 +54,7 @@ export function TopBar({
         <option value="">All types</option>
         {facets.kinds.map((k) => (
           <option key={k} value={k}>
-            {k === "vc" ? "VC" : "Startup"}
+            {k === "vc" ? "VC" : k === "mnc" ? "MNC" : "Startup"}
           </option>
         ))}
       </select>

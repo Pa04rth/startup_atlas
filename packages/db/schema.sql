@@ -20,7 +20,7 @@ CREATE TABLE areas (                    -- centroids for synthetic pins
   UNIQUE(city_id,name));
 
 -- public brand layer --------------------------------------------
-CREATE TYPE company_kind  AS ENUM ('startup','vc');
+CREATE TYPE company_kind  AS ENUM ('startup','vc','mnc');
 CREATE TYPE lifecycle     AS ENUM ('active','acquired','public','closed','unknown');
 CREATE TYPE loc_precision AS ENUM ('exact','building','street','locality','area','city','synthetic');
 CREATE TYPE review_status AS ENUM ('published','probable','review','archived');
@@ -89,6 +89,10 @@ CREATE TABLE job_postings (
   source_url TEXT, posted_at TIMESTAMPTZ, expires_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ DEFAULT now());
 CREATE INDEX job_postings_city_idx ON job_postings(city_id,expires_at);
+-- apply_url is a listing's natural identity for the daily refresh upsert
+-- (services/pipeline/src/steps/refresh_jobs.ts) — UNIQUE allows multiple
+-- NULLs, so it's harmless for any row that somehow lacks one.
+CREATE UNIQUE INDEX job_postings_apply_url_key ON job_postings(apply_url);
 
 -- news -----------------------------------------------------------
 CREATE TABLE news_articles (

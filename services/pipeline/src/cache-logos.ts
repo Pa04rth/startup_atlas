@@ -4,6 +4,7 @@
 //   pnpm --filter services-pipeline run cache-logos
 import { getPool } from "@startup-atlas/db";
 import { fetchAndCacheLogo } from "./lib/logos";
+import { withRetry } from "./lib/retry";
 
 async function main() {
   const pool = getPool();
@@ -28,7 +29,11 @@ async function main() {
     // up with either a real cached file or a clean null (CompanyLogo.tsx's
     // initials-avatar fallback), never a stale external URL that could
     // silently start failing again later the way the last three did.
-    await pool.query(`update brands set logo_url = $2 where id = $1`, [row.id, path]);
+    // withRetry (not just a bare query) because this loop runs ~800 writes
+    // sequentially over one connection — the first backfill run died to a
+    // single dropped connection near the end, losing all progress on the
+    // remaining rows for no reason better than a transient network blip.
+    await withRetry(() => pool.query(`update brands set logo_url = $2 where id = $1`, [row.id, path]));
     if (path) updated++;
     else skipped++;
   }
