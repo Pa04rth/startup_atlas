@@ -220,7 +220,7 @@ export function MapView({
     // to the copy under public/tiles/, served by Next's own dev server.
     // Either way MapLibre reads tile byte-ranges directly out of the file
     // via the pmtiles:// protocol registered above — no tile server process.
-    const pmtilesUrl = process.env.NEXT_PUBLIC_MAPTILES_URL;
+    const pmtilesUrl = process.env.NEXT_PUBLIC_MAPTILES_URL ?? "";
     // process.env.NEXT_PUBLIC_MAPTILES_URL || `${window.location.origin}/tiles/maharashtra.pmtiles`;
 
     const map = new maplibregl.Map({
