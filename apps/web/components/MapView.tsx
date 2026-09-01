@@ -51,7 +51,9 @@ function seededRandom(seed: string): number {
 // visibly bigger spread doesn't overclaim anything) and a tight one for
 // area/locality groups (we know the real neighborhood, they're genuinely
 // that close together — just spread enough to click individually).
-function spreadOverlaps(brands: BrandListItem[]): Map<string, [number, number]> {
+function spreadOverlaps(
+  brands: BrandListItem[],
+): Map<string, [number, number]> {
   const groups = new Map<string, BrandListItem[]>();
   for (const b of brands) {
     if (b.lat == null || b.lng == null) continue;
@@ -70,14 +72,18 @@ function spreadOverlaps(brands: BrandListItem[]): Map<string, [number, number]> 
     }
     const wide = precision === "synthetic" || precision === "city";
     const baseRadius = wide ? 0.01 : 0.0035; // ~1.1km vs ~390m at this latitude
-    const maxRadius = baseRadius + Math.min(group.length, 12) * (wide ? 0.0007 : 0.0003);
+    const maxRadius =
+      baseRadius + Math.min(group.length, 12) * (wide ? 0.0007 : 0.0003);
     group.forEach((b) => {
       const angle = seededRandom(`${b.id}:angle`) * 2 * Math.PI;
       // sqrt of a uniform [0,1) sample spreads points evenly across the
       // disc's *area* — without it, points bunch up near the center instead
       // of filling the whole radius.
       const r = maxRadius * Math.sqrt(seededRandom(`${b.id}:radius`));
-      coordsById.set(b.id, [(lng as number) + r * Math.cos(angle), (lat as number) + r * Math.sin(angle)]);
+      coordsById.set(b.id, [
+        (lng as number) + r * Math.cos(angle),
+        (lat as number) + r * Math.sin(angle),
+      ]);
     });
   }
   return coordsById;
@@ -105,7 +111,7 @@ type BrandFeature = GeoJSON.Feature<
 
 function toFeatureCollection(
   brands: BrandListItem[],
-  icons: Map<string, { iconId: string; scale: number }>
+  icons: Map<string, { iconId: string; scale: number }>,
 ): GeoJSON.FeatureCollection<GeoJSON.Point> {
   const coordsById = spreadOverlaps(brands);
   return {
@@ -156,10 +162,12 @@ const LOGO_ICON_SIZE = 22;
 // hosting the bytes makes that whole problem not exist.
 async function loadLogos(
   map: maplibregl.Map,
-  brands: BrandListItem[]
+  brands: BrandListItem[],
 ): Promise<Map<string, { iconId: string; scale: number }>> {
   const icons = new Map<string, { iconId: string; scale: number }>();
-  const uniqueUrls = [...new Set(brands.map((b) => b.logoUrl).filter((u): u is string => !!u))];
+  const uniqueUrls = [
+    ...new Set(brands.map((b) => b.logoUrl).filter((u): u is string => !!u)),
+  ];
 
   await Promise.allSettled(
     uniqueUrls.map(async (url, i) => {
@@ -169,7 +177,7 @@ async function loadLogos(
       map.addImage(iconId, data);
       const scale = LOGO_ICON_SIZE / Math.max(data.width, data.height);
       icons.set(url, { iconId, scale });
-    })
+    }),
   );
 
   return icons;
@@ -196,7 +204,9 @@ export function MapView({
   // passes the city's full brand list, so every logo this city could ever
   // need gets attempted once here — a later filter change only narrows the
   // set, it never introduces a brand whose logo wasn't already tried.
-  const iconsRef = useRef<Map<string, { iconId: string; scale: number }>>(new Map());
+  const iconsRef = useRef<Map<string, { iconId: string; scale: number }>>(
+    new Map(),
+  );
   const router = useRouter();
 
   useEffect(() => {
@@ -210,8 +220,8 @@ export function MapView({
     // to the copy under public/tiles/, served by Next's own dev server.
     // Either way MapLibre reads tile byte-ranges directly out of the file
     // via the pmtiles:// protocol registered above — no tile server process.
-    const pmtilesUrl =
-      process.env.NEXT_PUBLIC_MAPTILES_URL || `${window.location.origin}/tiles/maharashtra.pmtiles`;
+    const pmtilesUrl = process.env.NEXT_PUBLIC_MAPTILES_URL;
+    // process.env.NEXT_PUBLIC_MAPTILES_URL || `${window.location.origin}/tiles/maharashtra.pmtiles`;
 
     const map = new maplibregl.Map({
       container: containerRef.current,
@@ -224,7 +234,10 @@ export function MapView({
     // floating TopBar (CityExplorer.tsx) and was invisible underneath it.
     // Positioned via globals.css to clear the developer-credit badge that
     // also lives in this corner (CityExplorer.tsx's fixed bottom-5 left-5).
-    map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "bottom-left");
+    map.addControl(
+      new maplibregl.NavigationControl({ showCompass: false }),
+      "bottom-left",
+    );
 
     map.on("load", () => {
       map.addSource(SOURCE_ID, {
@@ -247,9 +260,19 @@ export function MapView({
         filter: ["has", "point_count"],
         paint: {
           // Vivid, not pale — a muted pastel version of these read as dull.
-          "circle-color": ["step", ["get", "point_count"], "#7ee08a", 10, "#ffc266"],
+          "circle-color": [
+            "step",
+            ["get", "point_count"],
+            "#7ee08a",
+            10,
+            "#ffc266",
+          ],
           // +14 (was +8) for a visibly broader ring around the inner circle.
-          "circle-radius": ["+", ["step", ["get", "point_count"], 22, 10, 28, 30, 36], 14],
+          "circle-radius": [
+            "+",
+            ["step", ["get", "point_count"], 22, 10, 28, 30, 36],
+            14,
+          ],
           "circle-blur": 0.3,
           "circle-opacity": 0.9,
         },
@@ -262,7 +285,13 @@ export function MapView({
         paint: {
           // One shade darker than the ring above, still bright/saturated —
           // not a flat tiered "dark vs light" contrast, but not dull either.
-          "circle-color": ["step", ["get", "point_count"], "#4cc264", 10, "#ff9f40"],
+          "circle-color": [
+            "step",
+            ["get", "point_count"],
+            "#4cc264",
+            10,
+            "#ff9f40",
+          ],
           "circle-radius": ["step", ["get", "point_count"], 22, 10, 28, 30, 36],
         },
       });
@@ -271,7 +300,11 @@ export function MapView({
         type: "symbol",
         source: SOURCE_ID,
         filter: ["has", "point_count"],
-        layout: { "text-field": "{point_count_abbreviated}", "text-size": 14, "text-font": ["Noto Sans Regular"] },
+        layout: {
+          "text-field": "{point_count_abbreviated}",
+          "text-size": 14,
+          "text-font": ["Noto Sans Regular"],
+        },
         // Dark text reads better than white now that both rings are pastel.
         paint: { "text-color": "#1f2a24" },
       });
@@ -328,9 +361,19 @@ export function MapView({
           // per-name hashed palette as CompanyLogo.tsx, so a startup with no
           // logo still reads as a distinct, identifiable badge instead of a
           // blank white dot.
-          "circle-color": ["case", ["has", "icon"], "#ffffff", ["get", "avatarColor"]],
+          "circle-color": [
+            "case",
+            ["has", "icon"],
+            "#ffffff",
+            ["get", "avatarColor"],
+          ],
           "circle-stroke-width": 2,
-          "circle-stroke-color": ["case", ["get", "precise"], "#0c7a5e", "#d99a3e"],
+          "circle-stroke-color": [
+            "case",
+            ["get", "precise"],
+            "#0c7a5e",
+            "#d99a3e",
+          ],
         },
       });
 
@@ -390,12 +433,20 @@ export function MapView({
         if (clusterId == null || !feature) return;
         try {
           const zoom = await source.getClusterExpansionZoom(clusterId);
-          const coords = (feature.geometry as GeoJSON.Point).coordinates as [number, number];
+          const coords = (feature.geometry as GeoJSON.Point).coordinates as [
+            number,
+            number,
+          ];
           // A little extra zoom past the minimum "would split" level and an
           // explicit ease-out curve — the point of clicking a cluster is
           // seeing it visibly divide into individual pins, not just barely
           // cross the threshold.
-          map.easeTo({ center: coords, zoom: zoom + 0.5, duration: 700, easing: (t) => 1 - (1 - t) * (1 - t) });
+          map.easeTo({
+            center: coords,
+            zoom: zoom + 0.5,
+            duration: 700,
+            easing: (t) => 1 - (1 - t) * (1 - t),
+          });
         } catch {
           // Cluster expansion is best-effort — a failed lookup just means
           // the click does nothing, not a broken map.
@@ -415,7 +466,9 @@ export function MapView({
       // slow icon host (or a browser blocking it) never delays first paint.
       loadLogos(map, brandsRef.current).then((icons) => {
         iconsRef.current = icons;
-        const source = map.getSource(SOURCE_ID) as maplibregl.GeoJSONSource | undefined;
+        const source = map.getSource(SOURCE_ID) as
+          | maplibregl.GeoJSONSource
+          | undefined;
         source?.setData(toFeatureCollection(brandsRef.current, icons));
       });
     });
@@ -430,7 +483,9 @@ export function MapView({
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
-    const source = map.getSource(SOURCE_ID) as maplibregl.GeoJSONSource | undefined;
+    const source = map.getSource(SOURCE_ID) as
+      | maplibregl.GeoJSONSource
+      | undefined;
     source?.setData(toFeatureCollection(brands, iconsRef.current));
   }, [brands]);
 
@@ -446,18 +501,26 @@ export function MapView({
     if (!map) return;
 
     if (!focusArea) {
-      map.easeTo({ center: [city.centerLng, city.centerLat], zoom: city.defaultZoom, duration: 800 });
+      map.easeTo({
+        center: [city.centerLng, city.centerLat],
+        zoom: city.defaultZoom,
+        duration: 800,
+      });
       return;
     }
 
     const points = brandsRef.current.filter(
       (b): b is BrandListItem & { lat: number; lng: number } =>
-        b.area === focusArea && b.lat != null && b.lng != null
+        b.area === focusArea && b.lat != null && b.lng != null,
     );
     if (points.length === 0) return;
 
     if (points.length === 1) {
-      map.easeTo({ center: [points[0].lng, points[0].lat], zoom: 15, duration: 800 });
+      map.easeTo({
+        center: [points[0].lng, points[0].lat],
+        zoom: 15,
+        duration: 800,
+      });
       return;
     }
 
@@ -468,7 +531,7 @@ export function MapView({
         [Math.min(...lngs), Math.min(...lats)],
         [Math.max(...lngs), Math.max(...lats)],
       ],
-      { padding: 80, duration: 800, maxZoom: 16 }
+      { padding: 80, duration: 800, maxZoom: 16 },
     );
   }, [focusArea, city.centerLat, city.centerLng, city.defaultZoom]);
 
