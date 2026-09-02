@@ -10,25 +10,19 @@ export function FloatingNewsPanel({ children }: { children: ReactNode }) {
   if (dismissed) return null;
 
   return (
-    <div className="absolute left-4 top-20 z-30 hidden w-64 sm:block">
-      {/* The dismiss button lives outside the overflow-y-auto element below
-          — a negative-offset absolute child of a scrolling container gets
-          clipped by that container's own overflow, which is what made it
-          invisible. */}
-      <div className="relative rounded-lg border border-neutral-200 bg-white/95 shadow-lg backdrop-blur-sm">
-        <button
-          onClick={() => setDismissed(true)}
-          aria-label="Dismiss news panel"
-          className="absolute -right-2 -top-2 z-10 flex h-5 w-5 items-center justify-center rounded-full border border-neutral-200 bg-white text-xs leading-none text-neutral-500 shadow-sm transition hover:text-neutral-900"
-        >
-          ✕
-        </button>
-        <div className="max-h-64 overflow-y-auto p-3">
-          <h2 className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-neutral-500">
-            📰 Startup &amp; tech news
-          </h2>
-          {children}
+    <div className="absolute left-4 top-20 z-30 hidden w-80 sm:block">
+      <div className="rounded-xl border border-neutral-200 bg-white shadow-lg">
+        <div className="flex items-center justify-between border-b border-neutral-100 px-4 py-3">
+          <h2 className="text-[15px] font-bold text-neutral-900">Latest news</h2>
+          <button
+            onClick={() => setDismissed(true)}
+            aria-label="Dismiss news panel"
+            className="flex h-6 w-6 items-center justify-center rounded-full text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-700"
+          >
+            ✕
+          </button>
         </div>
+        <div className="p-4">{children}</div>
       </div>
     </div>
   );

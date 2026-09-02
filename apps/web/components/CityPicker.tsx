@@ -1,5 +1,4 @@
 import Image from "next/image";
-import Link from "next/link";
 import type { CityConfig } from "@startup-atlas/config";
 
 // One representative landmark photo per city, swapped in as the tile
@@ -17,7 +16,7 @@ export function CityPicker({ cities }: { cities: CityConfig[] }) {
         const image = CITY_IMAGES[city.id];
 
         return (
-          <Link
+          <a
             key={city.id}
             href={`/${city.id}`}
             className="group relative isolate flex h-56 flex-col justify-end overflow-hidden rounded-2xl border border-neutral-200 shadow-sm transition hover:shadow-lg"
@@ -44,7 +43,7 @@ export function CityPicker({ cities }: { cities: CityConfig[] }) {
                 →
               </span>
             </div>
-          </Link>
+          </a>
         );
       })}
     </div>

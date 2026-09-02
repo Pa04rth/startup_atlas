@@ -21,6 +21,24 @@ function normalizeName(name: string): string {
   return name.replace(LEGAL_SUFFIX, "").trim().toLowerCase();
 }
 
+// Same "plain substring check, not NLP" philosophy as the brand-name match
+// below — good enough to drive a small category pill on the news panel
+// without pretending to be a real classifier. Order matters: acquisition/
+// merger language checked before funding so "acquired after raising $10M"
+// reads as an acquisition, not funding.
+const CATEGORY_PATTERNS: Array<{ category: string; pattern: RegExp }> = [
+  { category: "Acquisition", pattern: /\b(acqui(re|res|red|sition)|merger|merge with|to acquire)\b/i },
+  { category: "Funding", pattern: /\b(raises?|funding|seed round|series [a-e]\b|crore|\$[\d.]+\s*(m|mn|million|b|bn|billion)|valuation)\b/i },
+  { category: "Layoffs", pattern: /\b(layoffs?|lays off|job cuts)\b/i },
+  { category: "Launch", pattern: /\b(launches?|unveils?|announces? (the )?launch)\b/i },
+];
+function classifyCategory(title: string): string | null {
+  for (const { category, pattern } of CATEGORY_PATTERNS) {
+    if (pattern.test(title)) return category;
+  }
+  return null;
+}
+
 export async function refreshNews(
   cityId: string,
   articles: NewsItem[]
@@ -36,11 +54,11 @@ export async function refreshNews(
 
   for (const article of articles) {
     const inserted = await pool.query(
-      `insert into news_articles (title, url, source, published_at)
-       values ($1,$2,$3,$4)
+      `insert into news_articles (title, url, source, category, published_at)
+       values ($1,$2,$3,$4,$5)
        on conflict (url) do nothing
        returning id`,
-      [article.title, article.url, article.source, article.publishedAt]
+      [article.title, article.url, article.source, classifyCategory(article.title), article.publishedAt]
     );
 
     let articleId: number | undefined = inserted.rows[0]?.id;

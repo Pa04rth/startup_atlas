@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { getLiveAds } from "@startup-atlas/db";
 import { DismissibleBar } from "./DismissibleBar";
 
@@ -8,12 +7,12 @@ export async function SponsorBar({ cityId }: { cityId: string }) {
   if (ads.length === 0) {
     return (
       <DismissibleBar label="Dismiss sponsor spot">
-        <Link
+        <a
           href="/advertise"
           className="block border-b border-neutral-200 bg-neutral-50 px-4 py-2 pr-9 text-center text-sm text-neutral-500 transition hover:bg-neutral-100 hover:text-neutral-700"
         >
           This sponsor spot is open — <span className="font-medium text-emerald-700">feature your startup here →</span>
-        </Link>
+        </a>
       </DismissibleBar>
     );
   }

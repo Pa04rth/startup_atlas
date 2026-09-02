@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState, type ReactNode } from "react";
-import Link from "next/link";
 import type { CitySnapshot } from "@/lib/snapshot";
 import { TopBar, type Filters } from "./TopBar";
 import { MapView } from "./MapView";
@@ -84,7 +83,7 @@ export function CityExplorer({
             ) : (
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {filtered.map((b) => (
-                  <Link
+                  <a
                     key={b.id}
                     href={`/${snapshot.city.id}/company/${b.slug}`}
                     className="rounded-lg border border-neutral-200 bg-white p-4 transition hover:border-neutral-400 hover:shadow-sm"
@@ -114,7 +113,7 @@ export function CityExplorer({
                       )}
                       <PrecisionBadge precision={b.precision} />
                     </div>
-                  </Link>
+                  </a>
                 ))}
               </div>
             )}

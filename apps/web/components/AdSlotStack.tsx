@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { getLiveAds, type AdKind } from "@startup-atlas/db";
 import { AD_LABELS } from "@startup-atlas/config";
 import { CompanyLogo } from "./CompanyLogo";
@@ -35,7 +34,7 @@ export async function AdSlotStack({ cityId, kind, count }: { cityId: string; kin
   return (
     <div className="flex flex-col gap-2">
       {ads.slice(0, count).map((ad) => (
-        <Link
+        <a
           key={ad.id}
           href={ad.brandSlug ? `/${cityId}/company/${ad.brandSlug}` : "/advertise"}
           className="group relative flex h-20 items-center justify-center overflow-hidden rounded-lg border border-neutral-200 bg-neutral-50 shadow-sm transition hover:shadow-md"
@@ -47,12 +46,12 @@ export async function AdSlotStack({ cityId, kind, count }: { cityId: string; kin
           <span className="absolute inset-x-0 bottom-0 truncate bg-white/90 px-1.5 py-1 text-center text-[10px] font-medium text-neutral-800">
             {ad.brandName ?? shortLabel}
           </span>
-        </Link>
+        </a>
       ))}
 
       {Array.from({ length: openSlots }).map((_, i) =>
         isFlash ? (
-          <Link
+          <a
             key={`open-${i}`}
             href="/advertise"
             className="group flex h-20 flex-col items-center justify-center gap-0.5 rounded-lg border-2 border-dashed border-orange-300 bg-orange-50 px-2 text-center transition hover:border-orange-400 hover:bg-orange-100"
@@ -60,9 +59,9 @@ export async function AdSlotStack({ cityId, kind, count }: { cityId: string; kin
             <span className="text-base leading-none">⚡</span>
             <span className="text-[10px] font-semibold leading-tight text-orange-700">{periodNumber}-hr flash slot</span>
             <span className="text-[10px] font-medium text-orange-600">₹{price}</span>
-          </Link>
+          </a>
         ) : (
-          <Link
+          <a
             key={`open-${i}`}
             href="/advertise"
             className="group flex h-20 flex-col items-center justify-center gap-0.5 rounded-lg border-2 border-dashed border-neutral-300 bg-neutral-50 px-2 text-center transition hover:border-emerald-400 hover:bg-emerald-50"
@@ -73,7 +72,7 @@ export async function AdSlotStack({ cityId, kind, count }: { cityId: string; kin
             <span className="text-[10px] text-neutral-400 group-hover:text-emerald-600">
               ₹{price} / {periodNumber}{periodUnit}
             </span>
-          </Link>
+          </a>
         )
       )}
     </div>

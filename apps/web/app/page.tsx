@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { cities } from "@startup-atlas/config";
 import { CityPicker } from "@/components/CityPicker";
 import { DeveloperCredit } from "@/components/DeveloperCredit";
@@ -15,12 +14,12 @@ export default function HomePage() {
       <header className="mx-auto flex w-full max-w-5xl items-center justify-between px-6 py-6">
         <span className="text-sm font-semibold tracking-tight text-neutral-900">Startup Atlas</span>
         <nav className="flex items-center gap-5 text-sm text-neutral-500">
-          <Link href="/submit" className="transition hover:text-neutral-900">
+          <a href="/submit" className="transition hover:text-neutral-900">
             Submit a startup
-          </Link>
-          <Link href="/advertise" className="transition hover:text-neutral-900">
+          </a>
+          <a href="/advertise" className="transition hover:text-neutral-900">
             Advertise
-          </Link>
+          </a>
         </nav>
       </header>
 
@@ -59,12 +58,12 @@ export default function HomePage() {
         </div>
 
         <div className="flex gap-5">
-          <Link href="/privacy" className="transition hover:text-neutral-700">
+          <a href="/privacy" className="transition hover:text-neutral-700">
             Privacy
-          </Link>
-          <Link href="/terms" className="transition hover:text-neutral-700">
+          </a>
+          <a href="/terms" className="transition hover:text-neutral-700">
             Terms
-          </Link>
+          </a>
         </div>
       </footer>
     </div>

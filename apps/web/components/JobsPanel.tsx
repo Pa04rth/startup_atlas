@@ -11,10 +11,12 @@ export function JobsPanel({
   jobs,
   cityName,
   brandName,
+  citySlug,
 }: {
   jobs: BrandJobPosting[];
   cityName: string;
   brandName: string;
+  citySlug: string;
 }) {
   if (jobs.length === 0) return null;
 
@@ -34,7 +36,9 @@ export function JobsPanel({
         {jobs.map((job) => (
           <li key={job.id} className="flex items-start justify-between gap-4 py-3">
             <div className="min-w-0">
-              <p className="font-medium text-neutral-900">{job.title ?? "Open role"}</p>
+              <a href={`/${citySlug}/jobs/${job.id}`} className="font-medium text-neutral-900 hover:underline">
+                {job.title ?? "Open role"}
+              </a>
               <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                 {job.isWalkin && (
                   <span className="rounded-full bg-orange-50 px-2 py-0.5 text-xs font-medium text-orange-700">

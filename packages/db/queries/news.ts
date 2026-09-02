@@ -5,6 +5,7 @@ export type CompanyNewsItem = {
   title: string;
   url: string;
   source: string | null;
+  category: string | null;
   publishedAt: string | null;
 };
 
@@ -16,7 +17,7 @@ export type CompanyNewsItem = {
 export async function getRecentNews(limit: number): Promise<CompanyNewsItem[]> {
   const pool = getPool();
   const { rows } = await pool.query(
-    `select id, title, url, source, published_at
+    `select id, title, url, source, category, published_at
      from news_articles
      order by published_at desc nulls last, id desc
      limit $1`,
@@ -27,6 +28,7 @@ export async function getRecentNews(limit: number): Promise<CompanyNewsItem[]> {
     title: r.title,
     url: r.url,
     source: r.source,
+    category: r.category,
     publishedAt: r.published_at,
   }));
 }
@@ -34,7 +36,7 @@ export async function getRecentNews(limit: number): Promise<CompanyNewsItem[]> {
 export async function getCompanyNews(brandId: string): Promise<CompanyNewsItem[]> {
   const pool = getPool();
   const { rows } = await pool.query(
-    `select a.id, a.title, a.url, a.source, a.published_at
+    `select a.id, a.title, a.url, a.source, a.category, a.published_at
      from company_news cn
      join news_articles a on a.id = cn.article_id
      where cn.brand_id = $1
@@ -46,6 +48,7 @@ export async function getCompanyNews(brandId: string): Promise<CompanyNewsItem[]
     title: r.title,
     url: r.url,
     source: r.source,
+    category: r.category,
     publishedAt: r.published_at,
   }));
 }

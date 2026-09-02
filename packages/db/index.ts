@@ -24,3 +24,4 @@ export * from "./queries/news";
 export * from "./queries/ads";
 export * from "./queries/payments";
 export * from "./queries/admin";
+export * from "./queries/referrals";

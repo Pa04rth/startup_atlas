@@ -1,6 +1,3 @@
-import { randomUUID } from "node:crypto";
-import { mkdir, writeFile } from "node:fs/promises";
-import path from "node:path";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { cities } from "@startup-atlas/config";
@@ -18,22 +15,14 @@ const schema = z.object({
   jobsUrl: z.string().trim().url().max(500).optional().or(z.literal("")),
   email: z.string().trim().email().max(200).optional().or(z.literal("")),
   honeypot: z.string().max(0), // must be empty — see SubmitForm.tsx
+  // Present only from the "Manage company" edit flow (ManageCompanyForm) —
+  // absent/empty means this is a brand-new-company submission.
+  kind: z.enum(["new", "edit"]).optional(),
+  targetBrandId: z.string().uuid().optional().or(z.literal("")),
 });
 
 const MAX_LOGO_BYTES = 1_000_000; // 1MB
-const LOGO_EXTENSIONS: Record<string, string> = {
-  "image/png": "png",
-  "image/jpeg": "jpg",
-  "image/svg+xml": "svg",
-};
-
-// Saved to the local filesystem — works in `next dev` / a traditional Node
-// server, but Vercel's serverless functions have a read-only filesystem at
-// runtime and can't write here. Swap this for an upload to Cloudflare R2
-// before deploying — same interim-local-storage pattern already applied to
-// the self-hosted map tiles and cached company logos (see
-// infra/pmtiles/README.md and services/pipeline/src/lib/logos.ts).
-const UPLOADS_DIR = path.join(process.cwd(), "public", "uploads", "logos");
+const LOGO_CONTENT_TYPES = new Set(["image/png", "image/jpeg", "image/svg+xml", "image/webp"]);
 
 export async function POST(request: Request) {
   const formData = await request.formData().catch(() => null);
@@ -42,10 +31,9 @@ export async function POST(request: Request) {
   }
 
   const fields = Object.fromEntries(
-    ["cityId", "name", "website", "tagline", "stage", "hiring", "jobsUrl", "email"].map((key) => [
-      key,
-      formData.get(key)?.toString() ?? "",
-    ])
+    ["cityId", "name", "website", "tagline", "stage", "hiring", "jobsUrl", "email", "kind", "targetBrandId"].map(
+      (key) => [key, formData.get(key)?.toString() ?? ""]
+    )
   );
   // Never trust client-side-only validation — re-check everything here,
   // including the honeypot (a bot could POST directly, skipping the form).
@@ -54,21 +42,28 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid submission." }, { status: 400 });
   }
   const data = parsed.data;
+  const kind = data.kind === "edit" ? "edit" : "new";
+  if (kind === "edit" && !data.targetBrandId) {
+    return NextResponse.json({ error: "Missing company to edit." }, { status: 400 });
+  }
 
-  let logoPath: string | null = null;
+  // Held as base64 inside the submission's raw JSON until an admin
+  // approves it — Vercel's serverless functions can't write to local disk,
+  // and we don't want to fill R2 with logos for spam/rejected submissions.
+  // The actual R2 upload happens in lib/admin/actions.ts's approveSubmission,
+  // see apps/web/lib/r2.ts.
+  let logoBase64: string | null = null;
+  let logoContentType: string | null = null;
   const logo = formData.get("logo");
   if (logo instanceof File && logo.size > 0) {
-    const ext = LOGO_EXTENSIONS[logo.type];
-    if (!ext) {
-      return NextResponse.json({ error: "Logo must be PNG, JPG, or SVG." }, { status: 400 });
+    if (!LOGO_CONTENT_TYPES.has(logo.type)) {
+      return NextResponse.json({ error: "Logo must be PNG, JPG, SVG, or WEBP." }, { status: 400 });
     }
     if (logo.size > MAX_LOGO_BYTES) {
       return NextResponse.json({ error: "Logo must be under 1MB." }, { status: 400 });
     }
-    const filename = `${randomUUID()}.${ext}`;
-    await mkdir(UPLOADS_DIR, { recursive: true });
-    await writeFile(path.join(UPLOADS_DIR, filename), Buffer.from(await logo.arrayBuffer()));
-    logoPath = `/uploads/logos/${filename}`;
+    logoContentType = logo.type;
+    logoBase64 = Buffer.from(await logo.arrayBuffer()).toString("base64");
   }
 
   const { id } = await createSubmission({
@@ -80,7 +75,9 @@ export async function POST(request: Request) {
     hiring: data.hiring === "on",
     jobsUrl: data.jobsUrl || null,
     email: data.email || null,
-    raw: { ...data, logoPath },
+    kind,
+    targetBrandId: data.targetBrandId || null,
+    raw: { ...data, logoBase64, logoContentType },
   });
 
   return NextResponse.json({ ok: true, id });

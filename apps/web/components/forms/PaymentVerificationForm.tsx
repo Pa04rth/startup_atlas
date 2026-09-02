@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { PaymentQR } from "@/components/PaymentQR";
 
-type Kind = "ad_booking" | "subscription" | "connect_request";
+type Kind = "ad_booking" | "subscription" | "connect_request" | "referral_request";
 
 const inputClass =
   "mt-1.5 w-full rounded-lg border border-neutral-300 px-3.5 py-2.5 text-sm text-neutral-900 shadow-sm " +

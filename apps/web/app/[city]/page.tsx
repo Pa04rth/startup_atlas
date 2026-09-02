@@ -22,7 +22,7 @@ export default async function CityPage({ params }: { params: Promise<{ city: str
       sponsorBar={<SponsorBar cityId={city} />}
       leftAdSlot={<AdSlotStack cityId={city} kind="boost" count={5} />}
       rightAdSlot={<AdSlotStack cityId={city} kind="flash" count={5} />}
-      newsPanel={<GeneralNewsList limit={6} />}
+      newsPanel={<GeneralNewsList limit={15} />}
     />
   );
 }

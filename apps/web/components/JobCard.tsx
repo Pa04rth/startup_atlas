@@ -1,4 +1,3 @@
-import Link from "next/link";
 import type { JobPosting } from "@startup-atlas/db";
 
 function formatDate(iso: string | null): string | null {
@@ -18,10 +17,13 @@ export function JobCard({ job, citySlug }: { job: JobPosting; citySlug: string }
     >
       <div className="flex items-start justify-between gap-2">
         <div>
-          <h3 className="font-medium text-neutral-900">{job.title ?? "Open role"}</h3>
-          <Link href={`/${citySlug}/company/${job.brandSlug}`} className="text-sm text-neutral-600 hover:underline">
+          <a href={`/${citySlug}/jobs/${job.id}`} className="font-medium text-neutral-900 hover:underline">
+            {job.title ?? "Open role"}
+          </a>
+          <br />
+          <a href={`/${citySlug}/company/${job.brandSlug}`} className="text-sm text-neutral-600 hover:underline">
             {job.brandName}
-          </Link>
+          </a>
         </div>
         {job.isWalkin && (
           <span className="whitespace-nowrap rounded-full bg-amber-200 px-2 py-0.5 text-xs font-medium text-amber-900">

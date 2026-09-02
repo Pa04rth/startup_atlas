@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { SECTORS, STAGES } from "@startup-atlas/config";
 import type { CitySnapshot } from "@/lib/snapshot";
 
@@ -104,19 +103,19 @@ export function TopBar({
         </button>
       </div>
 
-      <Link
+      <a
         href={`/${city.id}/jobs`}
         className="whitespace-nowrap rounded-full border border-orange-300 bg-orange-50 px-3 py-1.5 text-sm font-medium text-orange-600 transition hover:bg-orange-100"
       >
         💼 {jobsCount} jobs
-      </Link>
+      </a>
 
-      <Link
+      <a
         href="/submit"
         className="whitespace-nowrap rounded-full bg-orange-500 px-4 py-1.5 text-sm font-semibold text-white transition hover:bg-orange-600"
       >
         Submit
-      </Link>
+      </a>
     </div>
   );
 }

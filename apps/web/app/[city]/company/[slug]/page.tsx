@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { cities } from "@startup-atlas/config";
 import {
@@ -7,6 +6,7 @@ import {
   getPublicContacts,
   getCompanyNews,
   getJobsForBrand,
+  getApprovedReferralOffers,
 } from "@startup-atlas/db";
 import { PrecisionBadge } from "@/components/PrecisionBadge";
 import { VerifiedBadge } from "@/components/VerifiedBadge";
@@ -14,6 +14,7 @@ import { ContactsList } from "@/components/ContactsList";
 import { NewsPanel } from "@/components/NewsPanel";
 import { JobsPanel } from "@/components/JobsPanel";
 import { CompanyLogo } from "@/components/CompanyLogo";
+import { ReferralSection } from "@/components/ReferralSection";
 
 type Params = { city: string; slug: string };
 
@@ -46,20 +47,21 @@ export default async function CompanyPage({
   if (!data) notFound();
   const { brand, city } = data;
 
-  const [contacts, news, jobs] = await Promise.all([
+  const [contacts, news, jobs, referralOffers] = await Promise.all([
     getPublicContacts(brand.id),
     getCompanyNews(brand.id),
     getJobsForBrand(brand.id),
+    getApprovedReferralOffers(brand.id),
   ]);
 
   return (
     <main className="mx-auto max-w-3xl px-6 py-12">
-      <Link
+      <a
         href={`/${city.id}`}
         className="inline-flex items-center gap-1.5 text-sm font-medium text-neutral-500 hover:text-neutral-900"
       >
         ← Back to map
-      </Link>
+      </a>
 
       <div className="mt-6 flex items-start justify-between gap-4">
         <div className="flex items-start gap-3">
@@ -77,11 +79,19 @@ export default async function CompanyPage({
             )}
           </div>
         </div>
-        {brand.hiring && (
-          <span className="whitespace-nowrap rounded-full bg-emerald-50 px-3 py-1 text-sm font-medium text-emerald-700">
-            Hiring
-          </span>
-        )}
+        <div className="flex shrink-0 items-center gap-2">
+          {brand.hiring && (
+            <span className="whitespace-nowrap rounded-full bg-emerald-50 px-3 py-1 text-sm font-medium text-emerald-700">
+              Hiring
+            </span>
+          )}
+          <a
+            href={`/manage/${city.id}/${brand.slug}`}
+            className="whitespace-nowrap rounded-full border border-neutral-300 px-3 py-1 text-sm font-medium text-neutral-600 transition hover:border-neutral-400 hover:text-neutral-900"
+          >
+            Manage company
+          </a>
+        </div>
       </div>
 
       <div className="mt-4 flex flex-wrap items-center gap-2">
@@ -122,7 +132,14 @@ export default async function CompanyPage({
       </div>
 
       <div className="mt-10 space-y-8">
-        <JobsPanel jobs={jobs} cityName={city.name} brandName={brand.name} />
+        <JobsPanel jobs={jobs} cityName={city.name} brandName={brand.name} citySlug={city.id} />
+        <ReferralSection
+          cityId={city.id}
+          brandSlug={brand.slug}
+          brandName={brand.name}
+          offers={referralOffers}
+          jobs={jobs}
+        />
         <ContactsList contacts={contacts} />
         <NewsPanel articles={news} />
       </div>

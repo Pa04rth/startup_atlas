@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getAdBookingAmount, insertPaymentVerification } from "@startup-atlas/db";
+import { getAdBookingAmount, getReferralRequestAmount, insertPaymentVerification } from "@startup-atlas/db";
 
 const schema = z.object({
-  kind: z.enum(["ad_booking", "subscription", "connect_request"]),
+  kind: z.enum(["ad_booking", "subscription", "connect_request", "referral_request"]),
   referenceId: z.string().trim().min(1).max(100),
   payerName: z.string().trim().max(200).optional().or(z.literal("")),
   payerContact: z.string().trim().min(1).max(200),
@@ -28,6 +28,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Invalid reference." }, { status: 400 });
     }
     amountInr = await getAdBookingAmount(id);
+  } else if (data.kind === "referral_request") {
+    const id = Number(data.referenceId);
+    if (!Number.isInteger(id)) {
+      return NextResponse.json({ error: "Invalid reference." }, { status: 400 });
+    }
+    amountInr = await getReferralRequestAmount(id);
   } else {
     // subscriptions/connect_requests don't exist yet (later phases) — see
     // packages/db/queries/payments.ts's approveVerification for the same gate.

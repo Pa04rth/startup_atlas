@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
 import maplibregl from "maplibre-gl";
 import { Protocol } from "pmtiles";
 import type { CityConfig } from "@startup-atlas/config";
@@ -105,6 +104,12 @@ type BrandFeature = GeoJSON.Feature<
     iconScale?: number;
     initial: string;
     avatarColor: string;
+    jobCount: number;
+    tagline: string;
+    stage: string;
+    sector: string;
+    area: string;
+    logoUrl: string;
   }
 >;
 
@@ -131,6 +136,12 @@ function toFeatureCollection(
             // used here whenever no logo has loaded for this pin.
             initial: b.name.charAt(0).toUpperCase(),
             avatarColor: colorFor(b.name),
+            jobCount: b.openJobsCount ?? 0,
+            tagline: b.tagline ?? "",
+            stage: b.stage ?? "",
+            sector: b.sector ?? "",
+            area: b.area ?? "",
+            logoUrl: b.logoUrl ?? "",
             ...(logo ? { icon: logo.iconId, iconScale: logo.scale } : {}),
           },
         };
@@ -206,8 +217,6 @@ export function MapView({
   const iconsRef = useRef<Map<string, { iconId: string; scale: number }>>(
     new Map(),
   );
-  const router = useRouter();
-
   useEffect(() => {
     if (!containerRef.current) return;
     ensurePmtilesProtocol();
@@ -418,11 +427,91 @@ export function MapView({
         paint: { "text-color": "#ffffff" },
       });
 
-      const clickableLayers = ["points", "point-logos", "point-initials"];
+      // Small red count badge, top-right of the pin — how many open roles this
+      // brand currently has. Only drawn for brands with jobCount > 0, and only
+      // on un-clustered pins (a cluster already shows a company count of its
+      // own via cluster-count above, mixing the two reads as noise).
+      map.addLayer({
+        id: "job-badge-bg",
+        type: "circle",
+        source: SOURCE_ID,
+        filter: [
+          "all",
+          ["!", ["has", "point_count"]],
+          [">", ["get", "jobCount"], 0],
+        ],
+        paint: {
+          "circle-radius": 9,
+          "circle-color": "#e11d2e",
+          "circle-translate": [13, -13],
+          "circle-stroke-width": 1.5,
+          "circle-stroke-color": "#ffffff",
+        },
+      });
+      map.addLayer({
+        id: "job-badge-count",
+        type: "symbol",
+        source: SOURCE_ID,
+        filter: [
+          "all",
+          ["!", ["has", "point_count"]],
+          [">", ["get", "jobCount"], 0],
+        ],
+        layout: {
+          "text-field": ["to-string", ["get", "jobCount"]],
+          "text-size": 11,
+          "text-font": ["Open Sans Bold"],
+          "text-offset": [1.15, -1.15],
+          "text-allow-overlap": true,
+          "text-ignore-placement": true,
+        },
+        paint: { "text-color": "#ffffff" },
+      });
 
+      const clickableLayers = ["points", "point-logos", "point-initials", "job-badge-bg", "job-badge-count"];
+
+      // Click opens a small summary popup first (name, tagline, stage/sector,
+      // location, job count) with a "View more" link to the full SSR profile
+      // — matching the reference product's pin → popup → full-page flow,
+      // rather than navigating straight to the profile on the first click.
+      // The "View more" link is a plain <a href> inserted as raw HTML (not a
+      // React/Next <Link>) so clicking it is a real full-page browser
+      // navigation, not client-side routing.
+      let activePopup: maplibregl.Popup | null = null;
       map.on("click", clickableLayers, (e) => {
-        const slug = e.features?.[0]?.properties?.slug as string | undefined;
-        if (slug) router.push(`/${city.id}/company/${slug}`);
+        const feature = e.features?.[0];
+        const props = feature?.properties;
+        if (!props?.slug) return;
+        const coords = (feature!.geometry as GeoJSON.Point).coordinates as [number, number];
+
+        activePopup?.remove();
+
+        const meta = [props.stage, props.sector, props.area].filter(Boolean).join(" · ");
+        const profileHref = `/${city.id}/company/${props.slug}`;
+        const initialsAvatar = `<div style="width:36px;height:36px;border-radius:8px;background:${props.avatarColor ?? "#0c7a5e"};color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;flex-shrink:0;">${props.initial ?? "?"}</div>`;
+        const logoAvatar = props.logoUrl
+          ? `<img src="${props.logoUrl}" alt="" style="width:36px;height:36px;border-radius:8px;object-fit:contain;background:#fff;border:1px solid #eee;flex-shrink:0;" />`
+          : initialsAvatar;
+
+        const html = `
+          <div style="font-family:inherit;min-width:220px;max-width:260px;">
+            <div style="display:flex;gap:10px;align-items:flex-start;">
+              ${logoAvatar}
+              <div style="min-width:0;">
+                <div style="font-weight:700;font-size:14px;color:#111827;line-height:1.3;">${props.name ?? ""}</div>
+                ${props.tagline ? `<div style="font-size:12.5px;color:#4b5563;margin-top:2px;line-height:1.35;">${props.tagline}</div>` : ""}
+              </div>
+            </div>
+            ${meta ? `<div style="margin-top:8px;font-size:11.5px;color:#6b7280;">${meta}</div>` : ""}
+            ${props.jobCount > 0 ? `<div style="margin-top:6px;font-size:11.5px;font-weight:600;color:#e11d2e;">${props.jobCount} open role${props.jobCount === 1 ? "" : "s"}</div>` : ""}
+            <a href="${profileHref}" style="display:inline-block;margin-top:10px;font-size:12.5px;font-weight:600;color:#0c7a5e;text-decoration:none;">View more →</a>
+          </div>
+        `;
+
+        activePopup = new maplibregl.Popup({ closeButton: true, closeOnClick: true, offset: 18, maxWidth: "280px" })
+          .setLngLat(coords)
+          .setHTML(html)
+          .addTo(map);
       });
 
       map.on("click", "clusters", async (e) => {

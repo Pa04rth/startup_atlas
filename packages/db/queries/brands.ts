@@ -10,7 +10,7 @@ export type BrandListItem = {
   id: string;
   slug: string;
   name: string;
-  kind: "startup" | "vc";
+  kind: "startup" | "vc" | "mnc";
   tagline: string | null;
   sector: string | null;
   stage: string | null;
@@ -22,13 +22,14 @@ export type BrandListItem = {
   lat: number | null;
   lng: number | null;
   precision: LocPrecision | null;
+  openJobsCount: number;
 };
 
 const LIST_ROW_TO_ITEM = (r: Record<string, unknown>): BrandListItem => ({
   id: r.id as string,
   slug: r.slug as string,
   name: r.name as string,
-  kind: r.kind as "startup" | "vc",
+  kind: r.kind as "startup" | "vc" | "mnc",
   tagline: r.tagline as string | null,
   sector: r.sector as string | null,
   stage: r.stage as string | null,
@@ -40,6 +41,7 @@ const LIST_ROW_TO_ITEM = (r: Record<string, unknown>): BrandListItem => ({
   lat: r.lat as number | null,
   lng: r.lng as number | null,
   precision: r.precision as LocPrecision | null,
+  openJobsCount: Number(r.open_jobs_count ?? 0),
 });
 
 // Public read — never expose 'review'/'archived' rows outside the admin app.
@@ -48,7 +50,10 @@ export async function getPublishedBrands(cityId: string): Promise<BrandListItem[
   const { rows } = await pool.query(
     `select b.id, b.slug, b.name, b.kind, b.tagline, b.sector, b.stage, b.tags, b.hiring, b.logo_url,
             b.status, o.area,
-            ST_Y(o.geom) as lat, ST_X(o.geom) as lng, o.precision
+            ST_Y(o.geom) as lat, ST_X(o.geom) as lng, o.precision,
+            (select count(*) from job_postings jp
+              where jp.brand_id = b.id and (jp.expires_at is null or jp.expires_at > now())
+            ) as open_jobs_count
      from brands b
      left join offices o on o.brand_id = b.id
      where b.city_id = $1 and b.status in ('published','probable')
@@ -74,7 +79,10 @@ export async function getBrandBySlug(cityId: string, slug: string): Promise<Bran
     `select b.id, b.slug, b.name, b.kind, b.tagline, b.description, b.sector, b.stage, b.tags, b.hiring,
             b.logo_url, b.status, b.website, b.domain, b.founded_year, b.lifecycle,
             b.last_verified_at, o.area, o.address,
-            ST_Y(o.geom) as lat, ST_X(o.geom) as lng, o.precision
+            ST_Y(o.geom) as lat, ST_X(o.geom) as lng, o.precision,
+            (select count(*) from job_postings jp
+              where jp.brand_id = b.id and (jp.expires_at is null or jp.expires_at > now())
+            ) as open_jobs_count
      from brands b
      left join offices o on o.brand_id = b.id
      where b.city_id = $1 and b.slug = $2 and b.status in ('published','probable')

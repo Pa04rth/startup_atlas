@@ -30,7 +30,18 @@ export default async function SubmissionsPage() {
                   />
                 )}
                 <div className="min-w-0">
-                <p className="font-medium text-neutral-900">{s.name}</p>
+                <p className="font-medium text-neutral-900">
+                  {s.name}{" "}
+                  {s.kind === "edit" ? (
+                    <span className="rounded-full bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-amber-700">
+                      Edit request
+                    </span>
+                  ) : (
+                    <span className="rounded-full bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-emerald-700">
+                      New
+                    </span>
+                  )}
+                </p>
                 <p className="text-xs text-neutral-500">
                   {s.cityId}
                   {s.stage ? ` · ${s.stage}` : ""}
@@ -76,8 +87,12 @@ export default async function SubmissionsPage() {
       </div>
 
       <p className="mt-6 text-xs text-neutral-400">
-        "Approve" here marks the submission reviewed — it doesn't create a brand row yet. Convert it
-        into a full brand via the pipeline or a direct SQL insert until the "convert" flow is built.
+        "Approve" creates (or updates) the real brand row and uploads any attached logo to R2 — a new
+        submission still lands in the tier its score earns (check{" "}
+        <a href="/admin/review" className="underline hover:text-neutral-600">
+          the review queue
+        </a>{" "}
+        if it doesn't show up on the public map right away).
       </p>
     </div>
   );

@@ -1,6 +1,6 @@
 import { getPool } from "../index";
 
-export type PaymentVerificationKind = "ad_booking" | "subscription" | "connect_request";
+export type PaymentVerificationKind = "ad_booking" | "subscription" | "connect_request" | "referral_request";
 export type PaymentVerificationStatus = "pending" | "approved" | "rejected";
 
 export type PaymentVerification = {
@@ -73,9 +73,13 @@ export async function getPendingVerifications(): Promise<PaymentVerification[]> 
   return rows.map(mapRow);
 }
 
-// Only 'ad_booking' has a handler today — subscriptions/connect_requests get
-// their branch here once those phases are built (packages/db/migrations
-// 0001/0002 create the tables they'd update).
+// 'ad_booking' flips straight to live; 'referral_request' flips to 'paid'
+// (not straight to a payout state — a referral still needs the referrer to
+// actually deliver before the admin releases their cut, see
+// apps/admin's referrals page / setReferralRequestStatus).
+// subscriptions/connect_requests get their branch here once those phases
+// are built (packages/db/migrations 0001/0002 create the tables they'd
+// update).
 export async function approveVerification(id: number): Promise<void> {
   const pool = getPool();
   const client = await pool.connect();
@@ -95,6 +99,10 @@ export async function approveVerification(id: number): Promise<void> {
 
     if (kind === "ad_booking") {
       await client.query(`update ad_bookings set status='live' where id=$1`, [referenceId]);
+    } else if (kind === "referral_request") {
+      await client.query(`update referral_requests set status='paid' where id=$1 and status='requested'`, [
+        referenceId,
+      ]);
     } else {
       throw new Error(`no handler yet for payment_verifications.kind = "${kind}"`);
     }
