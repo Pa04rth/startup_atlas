@@ -33,9 +33,10 @@ jobs:
       matrix:
         city: [pune, mumbai]
       fail-fast: false # a bad run for one city shouldn't cancel the other
-    # On a manual dispatch with a specific city chosen, skip the other
-    # matrix leg entirely rather than running (and wasting time on) both.
-    if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.city == '' || github.event.inputs.city == matrix.city }}
+    # No job-level `if:` here — the `matrix` context isn't available at
+    # that point (GitHub Actions only exposes it inside steps), confirmed
+    # live: "Unrecognized named-value: 'matrix'" on a workflow_dispatch
+    # call. The actual skip lives on the run step below instead.
     steps:
       - uses: actions/checkout@v4
 
@@ -49,6 +50,9 @@ jobs:
       - run: pnpm install --frozen-lockfile
 
       - name: Run discovery for ${{ matrix.city }}
+        # On a manual dispatch with a specific city chosen, skip the other
+        # matrix leg's actual work (checkout/setup still run — harmless).
+        if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.city == '' || github.event.inputs.city == matrix.city }}
         run: pnpm --filter services-pipeline run start ${{ matrix.city }}
         env:
           # Repo Settings → Secrets and variables → Actions → New repository
