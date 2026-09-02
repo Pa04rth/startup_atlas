@@ -39,13 +39,24 @@ Same pooler host as `DATABASE_URL`, different role/credentials.
 
 ```bash
 cd services/monitoring
-docker compose --env-file ../../.env up -d
+docker compose --env-file ../../.env up -d --build
 ```
 
-`--env-file ../../.env` matters — without it, docker compose looks for a
-`.env` next to this `docker-compose.yml` (there isn't one) and the
-`${MONITORING_DATABASE_URL}`/`${GRAFANA_ADMIN_PASSWORD}` substitutions in
-the compose file will resolve to empty.
+Two things that matter here:
+- `--env-file ../../.env` — without it, docker compose looks for a `.env`
+  next to this `docker-compose.yml` (there isn't one) and the
+  `${MONITORING_DATABASE_URL}`/`${GRAFANA_ADMIN_PASSWORD}` substitutions in
+  the compose file resolve to empty.
+- `--build` — prometheus and grafana build tiny local images that `COPY`
+  in `prometheus.yml`/`grafana/provisioning` at build time, rather than
+  bind-mounting them from the host. Docker Desktop for Windows has a real,
+  reproducible bug bind-mounting a single file (or in one case a whole
+  directory) into these images — `error mounting ... not a directory` for
+  prometheus.yml, or Grafana silently seeing an empty provisioning folder.
+  Building instead of bind-mounting sidesteps it entirely. **Re-run with
+  `--build` any time you edit `prometheus/prometheus.yml` or anything
+  under `grafana/provisioning/`** — those changes won't show up otherwise,
+  since they're baked into the image now, not read live off disk.
 
 - Grafana: http://localhost:3001 (login `admin` / your `GRAFANA_ADMIN_PASSWORD`)
 - Prometheus: http://localhost:9090

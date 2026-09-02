@@ -1,16 +1,15 @@
 services:
   prometheus:
-    image: prom/prometheus:latest
+    build: ./prometheus # bakes prometheus.yml in at build time — see prometheus/Dockerfile
     container_name: startup-atlas-prometheus
     restart: unless-stopped
     ports:
       - "9090:9090"
     volumes:
-      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus-data:/prometheus
 
   grafana:
-    image: grafana/grafana:latest
+    build: ./grafana # bakes provisioning/ in at build time — see grafana/Dockerfile
     container_name: startup-atlas-grafana
     restart: unless-stopped
     ports:
@@ -22,7 +21,6 @@ services:
       GF_AUTH_ANONYMOUS_ENABLED: "false"
     volumes:
       - grafana-data:/var/lib/grafana
-      - ./grafana/provisioning:/etc/grafana/provisioning:ro
     depends_on:
       - prometheus
 
