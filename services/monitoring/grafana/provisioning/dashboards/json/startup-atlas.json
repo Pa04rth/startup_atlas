@@ -15,7 +15,7 @@
       "gridPos": { "h": 6, "w": 8, "x": 0, "y": 0 },
       "targets": [
         {
-          "rawSql": "select city_id as metric, count(*) as value from brands where status = 'review' group by city_id",
+          "rawSql": "select c.id as metric, count(b.id) as value from (values ('pune'),('mumbai')) as c(id) left join brands b on b.city_id = c.id and b.status = 'review' group by c.id order by c.id",
           "format": "table",
           "refId": "A"
         }
@@ -57,12 +57,12 @@
       "gridPos": { "h": 9, "w": 24, "x": 0, "y": 6 },
       "targets": [
         {
-          "rawSql": "select started_at as time, source, found from ingestion_runs where started_at > now() - interval '30 days' order by 1",
+          "rawSql": "select started_at as time, found as \"Found\" from ingestion_runs where started_at > now() - interval '30 days' order by 1",
           "format": "time_series",
           "refId": "A"
         },
         {
-          "rawSql": "select started_at as time, source, upserted from ingestion_runs where started_at > now() - interval '30 days' order by 1",
+          "rawSql": "select started_at as time, upserted as \"Upserted\" from ingestion_runs where started_at > now() - interval '30 days' order by 1",
           "format": "time_series",
           "refId": "B"
         }

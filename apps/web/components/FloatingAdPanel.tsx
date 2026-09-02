@@ -9,11 +9,11 @@ import { useState, type ReactNode } from "react";
 // whose whole point is to be seen.
 //
 // The right slot self-positions (vertically centered, nothing else lives on
-// that edge). The left slot shares its edge with FloatingNewsPanel, whose
-// height varies with how much news there is — rather than guessing a
-// position that won't collide, `side="left"` renders as a plain card with no
-// positioning of its own, and CityExplorer stacks it in a flex column
-// directly under the news panel so the two can never overlap.
+// that edge). The left slot shares its edge with NewsTab, so it doesn't
+// position itself at all — CityExplorer places it as NewsTab's flex sibling
+// (real document flow, not a guessed offset), directly below whatever
+// height NewsTab currently is (its collapsed tab most of the time, its
+// expanded card when a visitor opens it) so the two can never overlap.
 export function FloatingAdPanel({ side, children }: { side: "left" | "right"; children: ReactNode }) {
   const [dismissed, setDismissed] = useState(false);
   if (dismissed) return null;
@@ -32,7 +32,7 @@ export function FloatingAdPanel({ side, children }: { side: "left" | "right"; ch
   );
 
   if (side === "left") {
-    return <div className="w-44 shrink-0">{card}</div>;
+    return <div className="hidden w-44 shrink-0 lg:block">{card}</div>;
   }
 
   return (

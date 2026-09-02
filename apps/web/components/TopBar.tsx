@@ -38,11 +38,14 @@ export function TopBar({
   }
 
   return (
-    // rounded-2xl on mobile, rounded-full once everything fits on one line
-    // (sm+) — a rounded-full pill wrapping onto 3-4 rows on a phone renders
-    // as a broken oval blob instead of a clean toolbar, since the 9999px
-    // radius is computed against the whole (tall, wrapped) box.
-    <div className="flex flex-col gap-2 rounded-2xl border border-neutral-200 bg-white p-2.5 shadow-lg sm:flex-row sm:flex-wrap sm:items-center sm:rounded-full sm:px-3 sm:py-2">
+    // rounded-2xl (stacked rows) until there's genuinely enough width for
+    // one line — lg (1024px), not sm (640px): at tablet widths a single
+    // row still doesn't fit the label + search + 4 selects + toggle + jobs
+    // + submit, which cut the last dropdown off past the container edge.
+    // Below lg, rounded-full would also wrap onto 3-4 rows and render as a
+    // broken oval blob instead of a clean toolbar, since the 9999px radius
+    // is computed against the whole (tall, wrapped) box.
+    <div className="flex flex-col gap-2 rounded-2xl border border-neutral-200 bg-white p-2.5 shadow-lg lg:flex-row lg:flex-wrap lg:items-center lg:rounded-full lg:px-3 lg:py-2">
       <div className="flex items-center gap-2">
         <span className="flex shrink-0 items-center gap-1.5 whitespace-nowrap px-1 text-sm font-semibold text-neutral-900">
           📍 {city.name} Startup Map
@@ -52,14 +55,15 @@ export function TopBar({
           value={filters.search}
           onChange={(e) => set("search", e.target.value)}
           placeholder="Search startups, sectors, founders…"
-          className="min-w-0 flex-1 rounded-full border border-neutral-300 px-4 py-1.5 text-sm transition focus:border-emerald-600 focus:outline-none focus:ring-1 focus:ring-emerald-600 sm:min-w-[180px]"
+          className="min-w-0 flex-1 rounded-full border border-neutral-300 px-4 py-1.5 text-sm transition focus:border-emerald-600 focus:outline-none focus:ring-1 focus:ring-emerald-600 lg:min-w-[180px]"
         />
       </div>
 
-      {/* Horizontally scrollable on mobile instead of wrapping into a tall
-          stack of dropdowns that eats the map underneath — flows inline
-          normally once the bar has room (sm+). */}
-      <div className="-mx-2.5 flex items-center gap-2 overflow-x-auto px-2.5 [-ms-overflow-style:none] [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 [&::-webkit-scrollbar]:hidden">
+      {/* Wraps onto as many rows as it needs below lg (rather than hiding
+          "All sectors" etc. behind a horizontal scroll a visitor has no
+          reason to expect is there) — flows onto one line once the bar has
+          room for it (lg+). */}
+      <div className="flex flex-wrap items-center gap-2">
         <select value={filters.kind} onChange={(e) => set("kind", e.target.value)} className={selectClass}>
           <option value="">All types</option>
           {facets.kinds.map((k) => (
@@ -126,7 +130,7 @@ export function TopBar({
 
         <a
           href="/submit"
-          className="ml-auto whitespace-nowrap rounded-full bg-orange-500 px-4 py-1.5 text-sm font-semibold text-white transition hover:bg-orange-600 sm:ml-0"
+          className="ml-auto whitespace-nowrap rounded-full bg-orange-500 px-4 py-1.5 text-sm font-semibold text-white transition hover:bg-orange-600 lg:ml-0"
         >
           Submit
         </a>

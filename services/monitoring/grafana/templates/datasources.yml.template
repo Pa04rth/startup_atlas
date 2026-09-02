@@ -12,18 +12,24 @@ datasources:
   # ingestion runs, page views) — postgres_exporter only exposes DB-internal
   # stats (connections, cache hit ratio), not these, so Grafana's native
   # Postgres datasource + hand-written SQL panels is the right tool here.
-  # $__env{...} is Grafana's documented provisioning syntax for pulling a
-  # value from the container's own environment at startup — see this
-  # compose file's `env_file: ../../.env` on the grafana service.
+  #
+  # This file is a TEMPLATE — the ${VAR} placeholders below are resolved by
+  # `envsubst` in docker-entrypoint.sh before Grafana ever reads it (see
+  # that file + the grafana Dockerfile), not by Grafana's own internal
+  # provisioning-env-var expansion, which didn't actually take effect on
+  # this build for reasons not worth chasing further — verified live: the
+  # generated file lands at
+  # /etc/grafana/provisioning/datasources/datasources.yml with real values,
+  # and a real query against it returns real data.
   - name: Startup Atlas DB (read-only)
     uid: startup-atlas-db
     type: postgres
     access: proxy
-    url: $__env{MONITORING_PG_HOST}
-    database: $__env{MONITORING_PG_DATABASE}
-    user: $__env{MONITORING_PG_USER}
+    url: ${MONITORING_PG_HOST}
+    database: ${MONITORING_PG_DATABASE}
+    user: ${MONITORING_PG_USER}
     secureJsonData:
-      password: $__env{MONITORING_PG_PASSWORD}
+      password: ${MONITORING_PG_PASSWORD}
     jsonData:
       sslmode: require
       postgresVersion: 1500

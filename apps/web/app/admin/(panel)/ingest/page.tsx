@@ -1,19 +1,20 @@
 import { getRecentIngestionRuns } from "@startup-atlas/db";
 import IngestClient from "./IngestClient";
+import { cardClass, mutedText, tableHeadClass, tableRowClass } from "../_theme";
 
 export default async function IngestPage() {
   const runs = await getRecentIngestionRuns(15);
 
   return (
     <div>
-      <h1 className="text-xl font-bold text-neutral-900">Run ingest</h1>
-      <p className="mt-1 text-sm text-neutral-500">
+      <h1 className="text-xl font-bold text-white">Run ingest</h1>
+      <p className={`mt-1 text-sm ${mutedText}`}>
         Queues a discovery run on GitHub Actions (
         <a
           href="https://github.com/Pa04rth/startup_atlas/actions/workflows/discovery.yml"
           target="_blank"
           rel="noopener noreferrer"
-          className="underline hover:text-neutral-700"
+          className="text-[#6ba5ec] underline hover:text-white"
         >
           watch it run
         </a>
@@ -23,10 +24,10 @@ export default async function IngestPage() {
       <IngestClient />
 
       <div className="mt-8">
-        <h2 className="text-sm font-semibold text-neutral-900">Recent ingestion runs</h2>
-        <div className="mt-2 overflow-x-auto rounded-lg border border-neutral-200 bg-white">
+        <h2 className="text-sm font-semibold text-white">Recent ingestion runs</h2>
+        <div className={`mt-2 overflow-x-auto ${cardClass} !p-0`}>
           <table className="w-full text-left text-sm">
-            <thead className="border-b border-neutral-200 text-neutral-500">
+            <thead className={tableHeadClass}>
               <tr>
                 <th className="px-3 py-2 font-medium">City</th>
                 <th className="px-3 py-2 font-medium">Source</th>
@@ -38,18 +39,18 @@ export default async function IngestPage() {
             </thead>
             <tbody>
               {runs.map((r) => (
-                <tr key={r.id} className="border-b border-neutral-100 last:border-0">
-                  <td className="px-3 py-2">{r.city_id}</td>
-                  <td className="px-3 py-2">{r.source}</td>
-                  <td className="px-3 py-2">{r.found}</td>
-                  <td className="px-3 py-2">{r.upserted}</td>
-                  <td className="px-3 py-2">{r.needs_review}</td>
-                  <td className="px-3 py-2 text-neutral-500">{new Date(r.started_at).toLocaleString("en-IN")}</td>
+                <tr key={r.id} className={tableRowClass}>
+                  <td className="px-3 py-2 text-white">{r.city_id}</td>
+                  <td className="px-3 py-2 text-white">{r.source}</td>
+                  <td className="px-3 py-2 text-white">{r.found}</td>
+                  <td className="px-3 py-2 text-white">{r.upserted}</td>
+                  <td className="px-3 py-2 text-white">{r.needs_review}</td>
+                  <td className={`px-3 py-2 ${mutedText}`}>{new Date(r.started_at).toLocaleString("en-IN")}</td>
                 </tr>
               ))}
               {runs.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-3 py-4 text-center text-neutral-400">
+                  <td colSpan={6} className={`px-3 py-4 text-center ${mutedText}`}>
                     No ingestion runs recorded yet.
                   </td>
                 </tr>

@@ -18,7 +18,46 @@ function LinkedInIcon({ size }: { size: number }) {
 
 // Kushal's X profile isn't set up yet — no link to omit rather than guess
 // at or fake one; add it here once given.
-export function DeveloperCredit({ avatarSize = 24, iconSize = 14 }: { avatarSize?: number; iconSize?: number }) {
+//
+// `compact` drops the icon links and "By"/"and" filler words down to just
+// the two names — used on mobile, where this badge shares the bottom row
+// with the startup-count badge on the opposite corner and the full version
+// (avatar + 4 icon links) doesn't fit both on screen at once.
+export function DeveloperCredit({
+  avatarSize = 24,
+  iconSize = 14,
+  compact = false,
+}: {
+  avatarSize?: number;
+  iconSize?: number;
+  compact?: boolean;
+}) {
+  if (compact) {
+    // No avatar image here — every pixel counts on the badge this shares a
+    // row with (the startup-count badge, opposite corner) at phone widths.
+    return (
+      <>
+        <a
+          href="https://x.com/ParthSohaney04"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="font-medium text-neutral-700 hover:underline"
+        >
+          Parth
+        </a>
+        <span>&amp;</span>
+        <a
+          href="https://www.linkedin.com/in/kushal-gupta-77949118a/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="font-medium text-neutral-700 hover:underline"
+        >
+          Kushal
+        </a>
+      </>
+    );
+  }
+
   return (
     <>
       <Image

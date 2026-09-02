@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { triggerIngest } from "@/lib/admin/actions";
+import { buttonPrimaryClass } from "../_theme";
 
 const OPTIONS: Array<{ label: string; city: "" | "pune" | "mumbai" }> = [
   { label: "Run Pune", city: "pune" },
@@ -34,14 +35,14 @@ export default function IngestClient() {
             type="button"
             disabled={isPending}
             onClick={() => run(o.city)}
-            className="rounded-md bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+            className={buttonPrimaryClass}
           >
             {isPending ? "Queuing…" : o.label}
           </button>
         ))}
       </div>
       {message && (
-        <p className={`mt-3 text-sm ${message.kind === "ok" ? "text-emerald-700" : "text-red-600"}`}>
+        <p className={`mt-3 text-sm ${message.kind === "ok" ? "text-[#3ddc3d]" : "text-[#e46b6b]"}`}>
           {message.text}
         </p>
       )}

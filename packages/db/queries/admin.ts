@@ -43,6 +43,18 @@ export async function getBrandsByStatus(status: ReviewStatus): Promise<AdminBran
   }));
 }
 
+// Used right before a bulk publish (lib/admin/actions.ts's approveBrands)
+// to figure out which of the brands being approved still need a logo
+// auto-fetched — never fetch/upload for a brand that already has one.
+export async function getBrandsLogoInfo(
+  ids: string[]
+): Promise<Array<{ id: string; domain: string | null; logoUrl: string | null }>> {
+  if (ids.length === 0) return [];
+  const pool = getPool();
+  const { rows } = await pool.query(`select id, domain, logo_url from brands where id = any($1)`, [ids]);
+  return rows.map((r) => ({ id: r.id, domain: r.domain, logoUrl: r.logo_url }));
+}
+
 // Bulk browse/search across every brand regardless of status — the gap
 // BUILD_PLAN.md's Phase 4 status note flagged as "not built this pass."
 // This is where an admin corrects what the pipeline got wrong (bad

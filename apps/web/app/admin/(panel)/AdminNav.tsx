@@ -25,7 +25,7 @@ export function AdminNav() {
             href={item.href}
             className={
               "rounded-md px-2.5 py-1.5 transition " +
-              (active ? "bg-neutral-900 text-white" : "text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900")
+              (active ? "bg-[#3987e5] text-white" : "text-[#c3c2b7] hover:bg-white/5 hover:text-white")
             }
           >
             {item.label}

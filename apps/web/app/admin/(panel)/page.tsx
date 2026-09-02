@@ -5,6 +5,14 @@ import {
   getPendingVerifications,
   getPageViewStats,
 } from "@startup-atlas/db";
+import { cardClass, mutedText, secondaryText, tableHeadClass, tableRowClass, StatusPill } from "./_theme";
+import { TrendLineChart } from "./_charts/TrendLineChart";
+import { GroupedBarChart } from "./_charts/GroupedBarChart";
+
+function formatDay(iso: string): string {
+  const d = new Date(iso);
+  return d.toLocaleDateString("en-IN", { day: "numeric", month: "short" });
+}
 
 export default async function AdminDashboardPage() {
   const [statusCounts, runs, submissions, payments, pageViews] = await Promise.all([
@@ -17,51 +25,96 @@ export default async function AdminDashboardPage() {
 
   const cards = [
     { label: "Review queue", value: statusCounts.review ?? 0, href: "/admin/review" },
-    { label: "Published", value: statusCounts.published ?? 0 },
+    { label: "Published", value: statusCounts.published ?? 0, href: undefined },
     { label: "Pending submissions", value: submissions.length, href: "/admin/submissions" },
     { label: "Pending payments", value: payments.length, href: "/admin/payments" },
-    { label: "Page views (7d)", value: pageViews.totalViews },
+    { label: "Page views (7d)", value: pageViews.totalViews, href: undefined },
   ];
+
+  const pageViewSeries = pageViews.byDay.map((d) => ({ label: formatDay(d.day), value: d.count }));
+  const ingestionSeries = [...runs]
+    .reverse()
+    .map((r) => ({ label: `${r.city_id} ${formatDay(r.started_at)}`, a: r.found, b: r.upserted }));
 
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-xl font-bold text-neutral-900">Dashboard</h1>
-        <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
-          {cards.map((c) => (
-            <div key={c.label} className="rounded-lg border border-neutral-200 bg-white p-4">
-              <p className="text-2xl font-semibold text-neutral-900">{c.value}</p>
-              <p className="text-sm text-neutral-500">{c.label}</p>
-            </div>
-          ))}
+        <h1 className="text-xl font-bold text-white">Dashboard</h1>
+        <p className={`mt-1 text-sm ${mutedText}`}>Everything that needs a decision, and the data underneath it.</p>
+
+        <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-5">
+          {cards.map((c) => {
+            const inner = (
+              <>
+                <p className="text-2xl font-semibold text-white">{c.value}</p>
+                <p className={`text-sm ${mutedText}`}>{c.label}</p>
+              </>
+            );
+            return c.href ? (
+              <a key={c.label} href={c.href} className={`${cardClass} block transition hover:border-[#3987e5]/50`}>
+                {inner}
+              </a>
+            ) : (
+              <div key={c.label} className={cardClass}>
+                {inner}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <div className={cardClass}>
+          <h2 className="text-sm font-semibold text-white">Page views — last 7 days</h2>
+          <div className="mt-4">
+            <TrendLineChart data={pageViewSeries} />
+          </div>
+        </div>
+
+        <div className={cardClass}>
+          <h2 className="text-sm font-semibold text-white">Ingestion runs — found vs upserted</h2>
+          <div className="mt-4">
+            <GroupedBarChart data={ingestionSeries} seriesLabels={["Found", "Upserted"]} />
+          </div>
         </div>
       </div>
 
       <div>
-        <h2 className="text-sm font-semibold text-neutral-900">Recent ingestion runs</h2>
-        <div className="mt-2 overflow-x-auto rounded-lg border border-neutral-200 bg-white">
+        <h2 className="text-sm font-semibold text-white">Recent ingestion runs</h2>
+        <div className={`mt-2 overflow-x-auto ${cardClass} !p-0`}>
           <table className="w-full text-left text-sm">
-            <thead className="border-b border-neutral-200 text-neutral-500">
+            <thead className={tableHeadClass}>
               <tr>
                 <th className="px-3 py-2 font-medium">City</th>
                 <th className="px-3 py-2 font-medium">Source</th>
                 <th className="px-3 py-2 font-medium">Found</th>
                 <th className="px-3 py-2 font-medium">Upserted</th>
                 <th className="px-3 py-2 font-medium">Needs review</th>
+                <th className="px-3 py-2 font-medium">Started</th>
                 <th className="px-3 py-2 font-medium">Notes</th>
               </tr>
             </thead>
             <tbody>
               {runs.map((r) => (
-                <tr key={r.id} className="border-b border-neutral-100 last:border-0">
-                  <td className="px-3 py-2">{r.city_id}</td>
-                  <td className="px-3 py-2">{r.source}</td>
-                  <td className="px-3 py-2">{r.found}</td>
-                  <td className="px-3 py-2">{r.upserted}</td>
-                  <td className="px-3 py-2">{r.needs_review}</td>
-                  <td className="max-w-xs truncate px-3 py-2 text-red-600">{r.notes ?? "—"}</td>
+                <tr key={r.id} className={tableRowClass}>
+                  <td className={`px-3 py-2 ${secondaryText}`}>{r.city_id}</td>
+                  <td className="px-3 py-2 text-white">{r.source}</td>
+                  <td className="px-3 py-2 text-white">{r.found}</td>
+                  <td className="px-3 py-2 text-white">{r.upserted}</td>
+                  <td className="px-3 py-2">
+                    {r.needs_review > 0 ? <StatusPill value="review" /> : <span className={secondaryText}>0</span>}
+                  </td>
+                  <td className={`px-3 py-2 ${mutedText}`}>{new Date(r.started_at).toLocaleString("en-IN")}</td>
+                  <td className="max-w-xs truncate px-3 py-2 text-[#e46b6b]">{r.notes ?? "—"}</td>
                 </tr>
               ))}
+              {runs.length === 0 && (
+                <tr>
+                  <td colSpan={7} className={`px-3 py-4 text-center ${mutedText}`}>
+                    No ingestion runs recorded yet.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
@@ -69,10 +122,10 @@ export default async function AdminDashboardPage() {
 
       {pageViews.topPaths.length > 0 && (
         <div>
-          <h2 className="text-sm font-semibold text-neutral-900">Top pages (7d)</h2>
-          <div className="mt-2 overflow-x-auto rounded-lg border border-neutral-200 bg-white">
+          <h2 className="text-sm font-semibold text-white">Top pages (7d)</h2>
+          <div className={`mt-2 overflow-x-auto ${cardClass} !p-0`}>
             <table className="w-full text-left text-sm">
-              <thead className="border-b border-neutral-200 text-neutral-500">
+              <thead className={tableHeadClass}>
                 <tr>
                   <th className="px-3 py-2 font-medium">Path</th>
                   <th className="px-3 py-2 font-medium">Views</th>
@@ -80,9 +133,9 @@ export default async function AdminDashboardPage() {
               </thead>
               <tbody>
                 {pageViews.topPaths.map((p) => (
-                  <tr key={p.path} className="border-b border-neutral-100 last:border-0">
-                    <td className="px-3 py-2 text-neutral-700">{p.path}</td>
-                    <td className="px-3 py-2">{p.count}</td>
+                  <tr key={p.path} className={tableRowClass}>
+                    <td className={`px-3 py-2 ${secondaryText}`}>{p.path}</td>
+                    <td className="px-3 py-2 text-white">{p.count}</td>
                   </tr>
                 ))}
               </tbody>

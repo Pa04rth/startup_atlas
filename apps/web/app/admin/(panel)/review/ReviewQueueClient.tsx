@@ -3,6 +3,7 @@
 import { useMemo, useState, useTransition } from "react";
 import type { AdminBrandRow } from "@startup-atlas/db";
 import { approveBrand, archiveBrand, approveBrands, archiveBrands } from "@/lib/admin/actions";
+import { cardClass, mutedText, secondaryText, buttonPrimaryClass, buttonGhostClass } from "../_theme";
 
 export default function ReviewQueueClient({ brands }: { brands: AdminBrandRow[] }) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -42,24 +43,24 @@ export default function ReviewQueueClient({ brands }: { brands: AdminBrandRow[] 
 
   return (
     <div>
-      <div className="mt-4 flex items-center gap-3 rounded-lg border border-neutral-200 bg-neutral-50 p-3">
-        <label className="flex items-center gap-2 text-sm text-neutral-700">
+      <div className={`mt-4 flex items-center gap-3 ${cardClass}`}>
+        <label className={`flex items-center gap-2 text-sm ${secondaryText}`}>
           <input
             type="checkbox"
             checked={allSelected}
             onChange={toggleAll}
             disabled={brands.length === 0}
-            className="h-4 w-4"
+            className="h-4 w-4 accent-[#3987e5]"
           />
           Select all ({brands.length})
         </label>
-        <span className="text-sm text-neutral-500">{selected.size} selected</span>
+        <span className={`text-sm ${mutedText}`}>{selected.size} selected</span>
         <div className="ml-auto flex gap-2">
           <button
             type="button"
             onClick={bulkApprove}
             disabled={selected.size === 0 || isPending}
-            className="rounded-md bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+            className={buttonPrimaryClass}
           >
             Approve selected
           </button>
@@ -67,7 +68,7 @@ export default function ReviewQueueClient({ brands }: { brands: AdminBrandRow[] 
             type="button"
             onClick={bulkArchive}
             disabled={selected.size === 0 || isPending}
-            className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm text-neutral-700 hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-50"
+            className={buttonGhostClass}
           >
             Archive selected
           </button>
@@ -76,20 +77,17 @@ export default function ReviewQueueClient({ brands }: { brands: AdminBrandRow[] 
 
       <div className="mt-4 space-y-2">
         {brands.map((b) => (
-          <div
-            key={b.id}
-            className="flex items-center justify-between gap-4 rounded-lg border border-neutral-200 bg-white p-4"
-          >
+          <div key={b.id} className={`flex items-center justify-between gap-4 ${cardClass}`}>
             <div className="flex min-w-0 items-center gap-3">
               <input
                 type="checkbox"
                 checked={selected.has(b.id)}
                 onChange={() => toggleOne(b.id)}
-                className="h-4 w-4 shrink-0"
+                className="h-4 w-4 shrink-0 accent-[#3987e5]"
               />
               <div className="min-w-0">
-                <p className="font-medium text-neutral-900">{b.name}</p>
-                <p className="text-xs text-neutral-500">
+                <p className="font-medium text-white">{b.name}</p>
+                <p className={`text-xs ${mutedText}`}>
                   {b.cityId} · score {b.score} · {b.precision ?? "no location"}
                   {b.website ? ` · ${b.website}` : ""}
                 </p>
@@ -97,24 +95,19 @@ export default function ReviewQueueClient({ brands }: { brands: AdminBrandRow[] 
             </div>
             <div className="flex shrink-0 gap-2">
               <form action={approveBrand.bind(null, b.id)}>
-                <button
-                  type="submit"
-                  className="rounded-md bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-700"
-                >
+                <button type="submit" className={buttonPrimaryClass}>
                   Approve
                 </button>
               </form>
               <form action={archiveBrand.bind(null, b.id)}>
-                <button
-                  type="submit"
-                  className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm text-neutral-700 hover:bg-neutral-50"
-                >
+                <button type="submit" className={buttonGhostClass}>
                   Archive
                 </button>
               </form>
             </div>
           </div>
         ))}
+        {brands.length === 0 && <p className={`text-sm ${mutedText}`}>Nothing waiting for review.</p>}
       </div>
     </div>
   );

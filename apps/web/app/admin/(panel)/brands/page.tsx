@@ -1,5 +1,6 @@
 import { searchBrands } from "@startup-atlas/db";
 import { cities } from "@startup-atlas/config";
+import { cardClass, mutedText, secondaryText, inputClass, buttonPrimaryClass, buttonGhostClass, tableHeadClass, tableRowClass, StatusPill } from "../_theme";
 
 const PAGE_SIZE = 25;
 
@@ -32,17 +33,12 @@ export default async function BrandsPage({
 
   return (
     <div>
-      <h1 className="text-xl font-bold text-neutral-900">Brands</h1>
-      <p className="mt-1 text-sm text-neutral-500">{total} total, across every status — this is the bulk fix-up view.</p>
+      <h1 className="text-xl font-bold text-white">Brands</h1>
+      <p className={`mt-1 text-sm ${mutedText}`}>{total} total, across every status — this is the bulk fix-up view.</p>
 
       <form className="mt-4 flex flex-wrap gap-2" method="get">
-        <input
-          name="q"
-          defaultValue={params.q ?? ""}
-          placeholder="Search by name…"
-          className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm"
-        />
-        <select name="city" defaultValue={params.city ?? ""} className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm">
+        <input name="q" defaultValue={params.q ?? ""} placeholder="Search by name…" className={inputClass} />
+        <select name="city" defaultValue={params.city ?? ""} className={inputClass}>
           <option value="">All cities</option>
           {cities.map((c) => (
             <option key={c.id} value={c.id}>
@@ -50,7 +46,7 @@ export default async function BrandsPage({
             </option>
           ))}
         </select>
-        <select name="status" defaultValue={params.status ?? ""} className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm">
+        <select name="status" defaultValue={params.status ?? ""} className={inputClass}>
           <option value="">All statuses</option>
           {["published", "probable", "review", "archived"].map((s) => (
             <option key={s} value={s}>
@@ -58,14 +54,14 @@ export default async function BrandsPage({
             </option>
           ))}
         </select>
-        <button type="submit" className="rounded-md bg-neutral-900 px-3 py-1.5 text-sm font-medium text-white">
+        <button type="submit" className={buttonPrimaryClass}>
           Filter
         </button>
       </form>
 
-      <div className="mt-4 overflow-x-auto rounded-lg border border-neutral-200 bg-white">
+      <div className={`mt-4 overflow-x-auto ${cardClass} !p-0`}>
         <table className="w-full text-left text-sm">
-          <thead className="border-b border-neutral-200 text-neutral-500">
+          <thead className={tableHeadClass}>
             <tr>
               <th className="px-3 py-2 font-medium">Name</th>
               <th className="px-3 py-2 font-medium">City</th>
@@ -77,37 +73,24 @@ export default async function BrandsPage({
           </thead>
           <tbody>
             {rows.map((b) => (
-              <tr key={b.id} className="border-b border-neutral-100 last:border-0 hover:bg-neutral-50">
+              <tr key={b.id} className={tableRowClass}>
                 <td className="px-3 py-2">
-                  <a href={`/admin/brands/${b.id}`} className="font-medium text-neutral-900 hover:underline">
+                  <a href={`/admin/brands/${b.id}`} className="font-medium text-white hover:underline">
                     {b.name}
                   </a>
                 </td>
-                <td className="px-3 py-2 text-neutral-500">{b.cityId}</td>
+                <td className={`px-3 py-2 ${mutedText}`}>{b.cityId}</td>
                 <td className="px-3 py-2">
-                  <span
-                    className={
-                      "rounded-full px-2 py-0.5 text-xs font-semibold " +
-                      (b.status === "published"
-                        ? "bg-emerald-50 text-emerald-700"
-                        : b.status === "probable"
-                          ? "bg-sky-50 text-sky-700"
-                          : b.status === "review"
-                            ? "bg-amber-50 text-amber-700"
-                            : "bg-neutral-100 text-neutral-500")
-                    }
-                  >
-                    {b.status}
-                  </span>
+                  <StatusPill value={b.status} />
                 </td>
-                <td className="px-3 py-2 text-neutral-500">{b.score}</td>
-                <td className="px-3 py-2 text-neutral-500">{b.precision ?? "—"}</td>
-                <td className="px-3 py-2 max-w-[200px] truncate text-neutral-500">{b.website ?? "—"}</td>
+                <td className={`px-3 py-2 ${secondaryText}`}>{b.score}</td>
+                <td className={`px-3 py-2 ${mutedText}`}>{b.precision ?? "—"}</td>
+                <td className={`max-w-[200px] truncate px-3 py-2 ${mutedText}`}>{b.website ?? "—"}</td>
               </tr>
             ))}
             {rows.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-3 py-4 text-center text-neutral-400">
+                <td colSpan={6} className={`px-3 py-4 text-center ${mutedText}`}>
                   No brands match these filters.
                 </td>
               </tr>
@@ -116,18 +99,18 @@ export default async function BrandsPage({
         </table>
       </div>
 
-      <div className="mt-3 flex items-center justify-between text-sm text-neutral-500">
+      <div className={`mt-3 flex items-center justify-between text-sm ${mutedText}`}>
         <span>
           Page {page} of {pageCount}
         </span>
         <div className="flex gap-2">
           {page > 1 && (
-            <a href={pageUrl(page - 1)} className="rounded-md border border-neutral-300 px-3 py-1.5 hover:bg-neutral-50">
+            <a href={pageUrl(page - 1)} className={buttonGhostClass}>
               ← Prev
             </a>
           )}
           {page < pageCount && (
-            <a href={pageUrl(page + 1)} className="rounded-md border border-neutral-300 px-3 py-1.5 hover:bg-neutral-50">
+            <a href={pageUrl(page + 1)} className={buttonGhostClass}>
               Next →
             </a>
           )}

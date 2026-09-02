@@ -11,3 +11,25 @@
   bottom: 68px !important;
   left: 16px !important;
 }
+
+/* Thin, unobtrusive scrollbar for small internally-scrolling panels (the
+   floating news card, the left news+ad rail) — the native scrollbar (wide,
+   with up/down arrow buttons on Windows/Chrome) reads as a broken layout at
+   this scale rather than an intentional scroll affordance. */
+.thin-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(212 212 212) transparent;
+}
+.thin-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+.thin-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.thin-scrollbar::-webkit-scrollbar-thumb {
+  background-color: rgb(212 212 212);
+  border-radius: 9999px;
+}
+.thin-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: rgb(163 163 163);
+}

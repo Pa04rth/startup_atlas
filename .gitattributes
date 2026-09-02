@@ -1,0 +1,5 @@
+# Shell scripts must stay LF — a CRLF shebang line breaks inside the Linux
+# containers these get COPYed into (services/monitoring/grafana's
+# docker-entrypoint.sh in particular). Windows checkouts with
+# core.autocrlf=true would otherwise convert these to CRLF.
+*.sh text eol=lf

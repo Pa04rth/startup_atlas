@@ -64,6 +64,20 @@ Two things that matter here:
   backlog, pending payments, 7-day page views, ingestion runs, Postgres
   connections, host load.
 
+**If the Postgres datasource panels show "No data" / "no default database
+configured" after a `--build`:** the `grafana-data` volume is almost
+certainly holding Grafana's own internal database from an earlier broken
+provisioning attempt, and it isn't overwriting the stale datasource record
+on restart — `docker compose up -d --build` alone won't fix this, since
+rebuilding the image doesn't touch the volume. Wipe it and start clean
+(safe — nothing here is configured through the Grafana UI, everything's
+provisioned as code and regenerates identically):
+
+```bash
+docker compose --env-file ../../.env down -v
+docker compose --env-file ../../.env up -d --build
+```
+
 ## What's wired to what
 
 - `postgres_exporter` → Prometheus: DB-internal stats (connections, cache

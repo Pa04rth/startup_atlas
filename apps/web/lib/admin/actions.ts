@@ -19,9 +19,10 @@ import {
   type ReferralRequestStatus,
   getBrandForAdmin,
   updateBrandFacts,
+  getBrandsLogoInfo,
 } from "@startup-atlas/db";
 import { scoreRecord, tierFromScore, type LocPrecision } from "@startup-atlas/core";
-import { uploadBufferToR2, extensionForContentType } from "@/lib/r2";
+import { uploadBufferToR2, extensionForContentType, fetchAndCacheLogoForDomain } from "@/lib/r2";
 import { ADMIN_COOKIE_NAME, verifySessionCookieValue } from "./auth";
 
 // Defense in depth: middleware.ts already gates every /admin/* request, but
@@ -36,9 +37,23 @@ async function requireAdmin(): Promise<void> {
   }
 }
 
+// Every path that can publish a brand (this, approveBrands below, and
+// approveSubmission's convertSubmissionToBrand branch) should end with the
+// same guarantee: a published brand either has a real logo_url or has
+// honestly tried and failed to get one — never "published, logo pending
+// because nobody remembered to run cache-logos." One place to do that
+// fetch-if-missing check so every approval path stays consistent.
+async function ensureLogo(id: string, domain: string | null, logoUrl: string | null): Promise<void> {
+  if (logoUrl || !domain) return;
+  const url = await fetchAndCacheLogoForDomain(domain);
+  if (url) await setBrandLogoUrl(id, url);
+}
+
 export async function approveBrand(id: string) {
   await requireAdmin();
   await setBrandStatus(id, "published");
+  const brand = await getBrandForAdmin(id);
+  if (brand) await ensureLogo(id, brand.domain, brand.logoUrl);
   revalidatePath("/admin/review");
 }
 
@@ -51,6 +66,8 @@ export async function archiveBrand(id: string) {
 export async function approveBrands(ids: string[]) {
   await requireAdmin();
   await setBrandStatusBulk(ids, "published");
+  const infos = await getBrandsLogoInfo(ids);
+  await Promise.all(infos.map((b) => ensureLogo(b.id, b.domain, b.logoUrl)));
   revalidatePath("/admin/review");
 }
 
@@ -88,10 +105,18 @@ export async function approveSubmission(id: number) {
 
   const raw = submission.raw as { logoBase64?: string; logoContentType?: string } | null;
   if (brandId && raw?.logoBase64 && raw?.logoContentType) {
+    // Submitter attached a real logo — use it, it's more authoritative
+    // than a guessed favicon.
     const buffer = Buffer.from(raw.logoBase64, "base64");
     const ext = extensionForContentType(raw.logoContentType);
     const url = await uploadBufferToR2(`logos/submission-${brandId}.${ext}`, buffer, raw.logoContentType);
     await setBrandLogoUrl(brandId, url);
+  } else if (brandId) {
+    // No logo attached — same auto-fetch-by-domain fallback every other
+    // publish path gets, so "approved" always means "logo handled," not
+    // "logo handled only if the pipeline or submitter happened to provide one."
+    const current = await getBrandForAdmin(brandId);
+    if (current) await ensureLogo(brandId, current.domain, current.logoUrl);
   }
 
   await setSubmissionStatus(id, "approved");

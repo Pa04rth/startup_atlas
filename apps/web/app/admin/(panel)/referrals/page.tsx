@@ -1,5 +1,6 @@
 import { getPendingReferralOffers, getReferralRequestsForAdmin } from "@startup-atlas/db";
 import ReferralsAdminClient from "./ReferralsAdminClient";
+import { mutedText } from "../_theme";
 
 export default async function ReferralsAdminPage() {
   const [offers, requests] = await Promise.all([
@@ -9,8 +10,8 @@ export default async function ReferralsAdminPage() {
 
   return (
     <div>
-      <h1 className="text-xl font-bold text-neutral-900">Referrals</h1>
-      <p className="mt-1 text-sm text-neutral-500">
+      <h1 className="text-xl font-bold text-white">Referrals</h1>
+      <p className={`mt-1 text-sm ${mutedText}`}>
         Verify referrer proof before an offer goes public, then track paid requests through delivery and payout.
       </p>
       <ReferralsAdminClient offers={offers} requests={requests} />
