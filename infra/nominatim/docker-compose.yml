@@ -1,0 +1,24 @@
+services:
+  nominatim:
+    image: mediagis/nominatim:4.5
+    container_name: startup-atlas-nominatim
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      # Maharashtra-only extract (Pune + Mumbai are both in it) — the whole-
+      # planet import takes days and needs ~1TB disk; a state extract takes
+      # roughly 30-90 minutes and a few GB. Swap for a different Geofabrik
+      # region/country if you ever cover a city outside Maharashtra.
+      PBF_URL: https://download.geofabrik.de/asia/india/maharashtra-latest.osm.pbf
+      REPLICATION_URL: https://download.geofabrik.de/asia/india/maharashtra-updates/
+      NOMINATIM_PASSWORD: ${NOMINATIM_DB_PASSWORD:-changeme}
+      # Import speed vs. RAM tradeoff — 2 is a safe default for a laptop/
+      # small VM; raise it if the host actually has the RAM to spare.
+      THREADS: 2
+    volumes:
+      - nominatim-data:/var/lib/postgresql/14/main
+    shm_size: 1gb
+
+volumes:
+  nominatim-data:

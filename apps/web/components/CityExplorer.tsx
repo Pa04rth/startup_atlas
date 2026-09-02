@@ -95,14 +95,25 @@ export function CityExplorer({
           )}
         </div>
 
-        {newsPanel && (
-          <FloatingNewsPanel topClassName={hiringMode ? "top-48" : "top-20"}>{newsPanel}</FloatingNewsPanel>
+        {/* News + the boost ad slot share the left rail — stacked in one
+            scrollable column (top anchored, bottom anchored to clear the
+            dev-credit/startup-count badges) so a long news list can never
+            overlap the ad card below it, on any viewport height. */}
+        {(newsPanel || (view === "map" && leftAdSlot)) && (
+          <div
+            className={
+              "absolute left-4 bottom-24 z-30 hidden w-80 flex-col gap-3 overflow-y-auto sm:flex " +
+              (hiringMode ? "top-48" : "top-20")
+            }
+          >
+            {newsPanel && <FloatingNewsPanel>{newsPanel}</FloatingNewsPanel>}
+            {view === "map" && leftAdSlot && <FloatingAdPanel side="left">{leftAdSlot}</FloatingAdPanel>}
+          </div>
         )}
 
         {view === "map" ? (
           <>
             <MapView city={snapshot.city} brands={filtered} focusArea={filters.area} />
-            {leftAdSlot && <FloatingAdPanel side="left">{leftAdSlot}</FloatingAdPanel>}
             {rightAdSlot && <FloatingAdPanel side="right">{rightAdSlot}</FloatingAdPanel>}
           </>
         ) : (

@@ -1,0 +1,88 @@
+{
+  "title": "Startup Atlas",
+  "uid": "startup-atlas-overview",
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "5m",
+  "time": { "from": "now-7d", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Review backlog by city",
+      "type": "stat",
+      "datasource": { "type": "postgres", "uid": "startup-atlas-db" },
+      "gridPos": { "h": 6, "w": 8, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "rawSql": "select city_id as metric, count(*) as value from brands where status = 'review' group by city_id",
+          "format": "table",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Pending payment verifications",
+      "type": "stat",
+      "datasource": { "type": "postgres", "uid": "startup-atlas-db" },
+      "gridPos": { "h": 6, "w": 8, "x": 8, "y": 0 },
+      "targets": [
+        {
+          "rawSql": "select count(*) as value from payment_verifications where status = 'pending'",
+          "format": "table",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Page views (7d)",
+      "type": "stat",
+      "datasource": { "type": "postgres", "uid": "startup-atlas-db" },
+      "gridPos": { "h": 6, "w": 8, "x": 16, "y": 0 },
+      "targets": [
+        {
+          "rawSql": "select count(*) as value from page_views where created_at > now() - interval '7 days'",
+          "format": "table",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Ingestion runs — found vs upserted",
+      "type": "timeseries",
+      "datasource": { "type": "postgres", "uid": "startup-atlas-db" },
+      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 6 },
+      "targets": [
+        {
+          "rawSql": "select started_at as time, source, found from ingestion_runs where started_at > now() - interval '30 days' order by 1",
+          "format": "time_series",
+          "refId": "A"
+        },
+        {
+          "rawSql": "select started_at as time, source, upserted from ingestion_runs where started_at > now() - interval '30 days' order by 1",
+          "format": "time_series",
+          "refId": "B"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Postgres connections",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 15 },
+      "targets": [{ "expr": "pg_stat_activity_count", "refId": "A" }]
+    },
+    {
+      "id": 6,
+      "title": "Host CPU / load",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 15 },
+      "targets": [{ "expr": "node_load1", "refId": "A" }]
+    }
+  ]
+}
