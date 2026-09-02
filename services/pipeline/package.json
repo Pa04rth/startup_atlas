@@ -4,11 +4,11 @@
   "version": "0.0.1",
   "type": "module",
   "scripts": {
-    "start": "tsx --env-file=../../.env src/run.ts",
-    "refresh-news": "tsx --env-file=../../.env src/refresh-news.ts",
-    "refresh-jobs": "tsx --env-file=../../.env src/refresh-jobs.ts",
-    "cache-logos": "tsx --env-file=../../.env src/cache-logos.ts",
-    "import-curated": "tsx --env-file=../../.env src/import-curated.ts",
+    "start": "tsx --env-file-if-exists=../../.env src/run.ts",
+    "refresh-news": "tsx --env-file-if-exists=../../.env src/refresh-news.ts",
+    "refresh-jobs": "tsx --env-file-if-exists=../../.env src/refresh-jobs.ts",
+    "cache-logos": "tsx --env-file-if-exists=../../.env src/cache-logos.ts",
+    "import-curated": "tsx --env-file-if-exists=../../.env src/import-curated.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
