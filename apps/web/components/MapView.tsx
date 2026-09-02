@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import maplibregl from "maplibre-gl";
+import "maplibre-gl/dist/maplibre-gl.css";
 import { Protocol } from "pmtiles";
 import type { CityConfig } from "@startup-atlas/config";
 import type { BrandListItem } from "@startup-atlas/db";

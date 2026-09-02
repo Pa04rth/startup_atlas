@@ -5,7 +5,7 @@
 // per-city `useBounds` flag decides when) — every UI component reading
 // this shape stays exactly the same either way.
 import { cities, type CityConfig } from "@startup-atlas/config";
-import { getPublishedBrands, type BrandListItem } from "@startup-atlas/db";
+import { getPublishedBrands, getJobFacets, type BrandListItem, type JobFacets } from "@startup-atlas/db";
 
 export type CitySnapshot = {
   city: CityConfig;
@@ -16,6 +16,7 @@ export type CitySnapshot = {
     sectors: string[];
     kinds: string[];
   };
+  jobFacets: JobFacets;
 };
 
 export async function getCitySnapshot(cityId: string): Promise<CitySnapshot | null> {
@@ -24,7 +25,7 @@ export async function getCitySnapshot(cityId: string): Promise<CitySnapshot | nu
 
   // Only published/probable brands ever reach a snapshot — see
   // packages/db/queries/brands.ts. review/archived rows never leave the DB.
-  const brands = await getPublishedBrands(cityId);
+  const [brands, jobFacets] = await Promise.all([getPublishedBrands(cityId), getJobFacets(cityId)]);
 
   const areas = new Set<string>();
   const stages = new Set<string>();
@@ -47,5 +48,6 @@ export async function getCitySnapshot(cityId: string): Promise<CitySnapshot | nu
       sectors: [...sectors].sort(),
       kinds: [...kinds].sort(),
     },
+    jobFacets,
   };
 }

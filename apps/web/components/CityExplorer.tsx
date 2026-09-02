@@ -3,6 +3,7 @@
 import { useMemo, useState, type ReactNode } from "react";
 import type { CitySnapshot } from "@/lib/snapshot";
 import { TopBar, type Filters } from "./TopBar";
+import { HiringBar, type HiringFilters } from "./HiringBar";
 import { MapView } from "./MapView";
 import { PrecisionBadge } from "./PrecisionBadge";
 import { CompanyLogo } from "./CompanyLogo";
@@ -11,6 +12,7 @@ import { FloatingNewsPanel } from "./FloatingNewsPanel";
 import { DeveloperCredit } from "./DeveloperCredit";
 
 const EMPTY_FILTERS: Filters = { search: "", kind: "", area: "", stage: "", sector: "" };
+const EMPTY_HIRING_FILTERS: HiringFilters = { track: "", seniority: "" };
 
 export function CityExplorer({
   snapshot,
@@ -33,6 +35,8 @@ export function CityExplorer({
 }) {
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
   const [view, setView] = useState<"map" | "grid">("map");
+  const [hiringMode, setHiringMode] = useState(false);
+  const [hiringFilters, setHiringFilters] = useState<HiringFilters>(EMPTY_HIRING_FILTERS);
 
   const filtered = useMemo(() => {
     const search = filters.search.trim().toLowerCase();
@@ -45,9 +49,14 @@ export function CityExplorer({
         const haystack = `${b.name} ${b.sector ?? ""} ${b.tagline ?? ""}`.toLowerCase();
         if (!haystack.includes(search)) return false;
       }
+      if (hiringMode) {
+        if (b.openJobsCount === 0) return false;
+        if (hiringFilters.track && !b.hiringTracks.includes(hiringFilters.track)) return false;
+        if (hiringFilters.seniority && !b.hiringSeniorities.includes(hiringFilters.seniority)) return false;
+      }
       return true;
     });
-  }, [snapshot.brands, filters]);
+  }, [snapshot.brands, filters, hiringMode, hiringFilters]);
 
   return (
     <div className="flex h-screen flex-col">
@@ -57,18 +66,38 @@ export function CityExplorer({
             NavigationControl offset in globals.css keeps MapLibre's own
             top-right zoom control from landing underneath it. */}
         <div className="absolute inset-x-4 top-4 z-30">
-          <TopBar
-            city={snapshot.city}
-            facets={snapshot.facets}
-            filters={filters}
-            onFiltersChange={setFilters}
-            view={view}
-            onViewChange={setView}
-            jobsCount={jobsCount}
-          />
+          {hiringMode ? (
+            <HiringBar
+              city={snapshot.city}
+              jobFacets={snapshot.jobFacets}
+              jobsCount={jobsCount}
+              matchCount={filtered.length}
+              filters={hiringFilters}
+              onFiltersChange={setHiringFilters}
+              view={view}
+              onViewChange={setView}
+              onClose={() => {
+                setHiringMode(false);
+                setHiringFilters(EMPTY_HIRING_FILTERS);
+              }}
+            />
+          ) : (
+            <TopBar
+              city={snapshot.city}
+              facets={snapshot.facets}
+              filters={filters}
+              onFiltersChange={setFilters}
+              view={view}
+              onViewChange={setView}
+              jobsCount={jobsCount}
+              onHiringClick={() => setHiringMode(true)}
+            />
+          )}
         </div>
 
-        {newsPanel && <FloatingNewsPanel>{newsPanel}</FloatingNewsPanel>}
+        {newsPanel && (
+          <FloatingNewsPanel topClassName={hiringMode ? "top-48" : "top-20"}>{newsPanel}</FloatingNewsPanel>
+        )}
 
         {view === "map" ? (
           <>
@@ -121,11 +150,18 @@ export function CityExplorer({
         )}
       </div>
 
-      <div className="fixed bottom-5 right-5 z-40 flex items-center gap-1.5 rounded-full bg-neutral-900 px-4 py-2.5 text-sm font-medium text-white shadow-lg">
-        🚀 {snapshot.brands.length} startup{snapshot.brands.length === 1 ? "" : "s"} active in {snapshot.city.name}
+      <div className="fixed bottom-5 right-5 z-40 flex items-center gap-1.5 whitespace-nowrap rounded-full bg-neutral-900 px-4 py-2.5 text-sm font-medium text-white shadow-lg">
+        🚀 {snapshot.brands.length} startup{snapshot.brands.length === 1 ? "" : "s"}
+        {/* Dropped on mobile — with the developer-credit badge sharing this
+            row from the opposite corner, the full sentence doesn't fit
+            beside it under ~400px wide. */}
+        <span className="hidden sm:inline">
+          {" "}
+          active in {snapshot.city.name}
+        </span>
       </div>
 
-      <div className="fixed bottom-5 left-5 z-40 flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-500 shadow-lg">
+      <div className="fixed bottom-5 left-5 z-40 hidden items-center gap-2 rounded-full border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-500 shadow-lg sm:flex">
         <DeveloperCredit />
       </div>
     </div>

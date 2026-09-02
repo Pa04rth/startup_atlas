@@ -23,6 +23,8 @@ export type BrandListItem = {
   lng: number | null;
   precision: LocPrecision | null;
   openJobsCount: number;
+  hiringTracks: string[];
+  hiringSeniorities: string[];
 };
 
 const LIST_ROW_TO_ITEM = (r: Record<string, unknown>): BrandListItem => ({
@@ -42,6 +44,8 @@ const LIST_ROW_TO_ITEM = (r: Record<string, unknown>): BrandListItem => ({
   lng: r.lng as number | null,
   precision: r.precision as LocPrecision | null,
   openJobsCount: Number(r.open_jobs_count ?? 0),
+  hiringTracks: (r.hiring_tracks as string[] | null) ?? [],
+  hiringSeniorities: (r.hiring_seniorities as string[] | null) ?? [],
 });
 
 // Public read — never expose 'review'/'archived' rows outside the admin app.
@@ -53,7 +57,15 @@ export async function getPublishedBrands(cityId: string): Promise<BrandListItem[
             ST_Y(o.geom) as lat, ST_X(o.geom) as lng, o.precision,
             (select count(*) from job_postings jp
               where jp.brand_id = b.id and (jp.expires_at is null or jp.expires_at > now())
-            ) as open_jobs_count
+            ) as open_jobs_count,
+            (select coalesce(array_agg(distinct jp.track) filter (where jp.track is not null), '{}')
+              from job_postings jp
+              where jp.brand_id = b.id and (jp.expires_at is null or jp.expires_at > now())
+            ) as hiring_tracks,
+            (select coalesce(array_agg(distinct jp.seniority) filter (where jp.seniority is not null), '{}')
+              from job_postings jp
+              where jp.brand_id = b.id and (jp.expires_at is null or jp.expires_at > now())
+            ) as hiring_seniorities
      from brands b
      left join offices o on o.brand_id = b.id
      where b.city_id = $1 and b.status in ('published','probable')

@@ -5,6 +5,7 @@ export type JobPosting = {
   brandId: string;
   brandName: string;
   brandSlug: string;
+  brandLogoUrl: string | null;
   title: string | null;
   track: string | null;
   seniority: string | null;
@@ -60,7 +61,6 @@ export async function getJobsForBrand(brandId: string): Promise<BrandJobPosting[
 }
 
 export type JobDetail = JobPosting & {
-  brandLogoUrl: string | null;
   brandTagline: string | null;
   cityId: string;
   sourceUrl: string | null;
@@ -112,7 +112,7 @@ export async function getJobById(id: number): Promise<JobDetail | null> {
 export async function getOpenJobs(cityId: string): Promise<JobPosting[]> {
   const pool = getPool();
   const { rows } = await pool.query(
-    `select j.id, j.brand_id, b.name as brand_name, b.slug as brand_slug,
+    `select j.id, j.brand_id, b.name as brand_name, b.slug as brand_slug, b.logo_url as brand_logo_url,
             j.title, j.track, j.seniority, j.fresher_friendly, j.apply_url,
             j.is_walkin, j.walkin_at, j.venue, j.expires_at
      from job_postings j
@@ -128,6 +128,7 @@ export async function getOpenJobs(cityId: string): Promise<JobPosting[]> {
     brandId: r.brand_id,
     brandName: r.brand_name,
     brandSlug: r.brand_slug,
+    brandLogoUrl: r.brand_logo_url,
     title: r.title,
     track: r.track,
     seniority: r.seniority,
@@ -138,4 +139,45 @@ export async function getOpenJobs(cityId: string): Promise<JobPosting[]> {
     venue: r.venue,
     expiresAt: r.expires_at,
   }));
+}
+
+export type JobFacets = {
+  tracks: Array<{ name: string; count: number }>;
+  seniorities: Array<{ name: string; count: number }>;
+};
+
+// Powers the map's "Hiring" mode Field/Level chip bar — counts of currently
+// open roles (published/probable brands only), grouped by the same
+// track/seniority job_classify.ts already infers at ingest time. Null
+// track/seniority (a manually-added job that skipped classification) is
+// dropped rather than shown as an "Unspecified" chip — nothing in the UI
+// currently lets a viewer filter for that bucket.
+export async function getJobFacets(cityId: string): Promise<JobFacets> {
+  const pool = getPool();
+  const [tracksResult, senioritiesResult] = await Promise.all([
+    pool.query(
+      `select j.track as name, count(*)::int as count
+       from job_postings j
+       join brands b on b.id = j.brand_id
+       where j.city_id = $1 and j.track is not null
+         and (j.expires_at is null or j.expires_at > now())
+         and b.status in ('published','probable')
+       group by j.track`,
+      [cityId]
+    ),
+    pool.query(
+      `select j.seniority as name, count(*)::int as count
+       from job_postings j
+       join brands b on b.id = j.brand_id
+       where j.city_id = $1 and j.seniority is not null
+         and (j.expires_at is null or j.expires_at > now())
+         and b.status in ('published','probable')
+       group by j.seniority`,
+      [cityId]
+    ),
+  ]);
+  return {
+    tracks: tracksResult.rows.map((r) => ({ name: r.name as string, count: r.count as number })),
+    seniorities: senioritiesResult.rows.map((r) => ({ name: r.name as string, count: r.count as number })),
+  };
 }

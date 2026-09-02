@@ -3,11 +3,7 @@
 import { useState } from "react";
 import { cities, AD_PRICING, AD_LABELS } from "@startup-atlas/config";
 import { PaymentVerificationForm } from "./PaymentVerificationForm";
-
-const inputClass =
-  "mt-1.5 w-full rounded-lg border border-neutral-300 px-3.5 py-2.5 text-sm text-neutral-900 shadow-sm " +
-  "transition placeholder:text-neutral-400 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/30";
-const labelClass = "block text-sm font-medium text-neutral-800";
+import { cardClass, inputClass, labelClass, primaryButtonClass, errorClass } from "./ui";
 
 export function AdvertiseForm() {
   const [booking, setBooking] = useState<{
@@ -61,10 +57,7 @@ export function AdvertiseForm() {
   }
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="space-y-5 rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm"
-    >
+    <form onSubmit={handleSubmit} className={cardClass}>
       <input
         type="text"
         name="website"
@@ -107,11 +100,7 @@ export function AdvertiseForm() {
         />
       </div>
 
-      {error && (
-        <p className="rounded-lg border border-red-200 bg-red-50 px-3.5 py-2.5 text-sm text-red-700">
-          {error}
-        </p>
-      )}
+      {error && <p className={errorClass}>{error}</p>}
       <div>
         <p className="text-sm text-neutral-600">
           After booking, you will receive an email with payment instructions.
@@ -119,11 +108,7 @@ export function AdvertiseForm() {
         </p>
       </div>
 
-      <button
-        type="submit"
-        disabled={loading}
-        className="w-full rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
-      >
+      <button type="submit" disabled={loading} className={primaryButtonClass}>
         {loading ? "Booking…" : "Book — pay next step"}
       </button>
     </form>

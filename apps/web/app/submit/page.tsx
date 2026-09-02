@@ -13,7 +13,14 @@ export default function SubmitPage() {
     <main className="min-h-screen bg-gradient-to-br from-emerald-950 via-emerald-900 to-teal-950 px-6 py-16">
       <div className="mx-auto grid max-w-4xl gap-10 md:grid-cols-[1fr_1.1fr] md:items-start">
         <div className="text-white">
-          <h1 className="font-serif text-4xl leading-tight tracking-tight">Submit or claim a company</h1>
+          <a
+            href="/"
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-emerald-100/70 transition hover:text-white"
+          >
+            ← Back to home
+          </a>
+
+          <h1 className="mt-5 font-serif text-4xl leading-tight tracking-tight">Submit or claim a company</h1>
           <p className="mt-3 text-emerald-100/80">
             Know a startup that's not on the map yet? Add it — or claim your own company's listing to keep it
             accurate.

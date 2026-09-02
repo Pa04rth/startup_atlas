@@ -17,7 +17,10 @@ import {
   setReferralOfferStatus,
   setReferralRequestStatus,
   type ReferralRequestStatus,
+  getBrandForAdmin,
+  updateBrandFacts,
 } from "@startup-atlas/db";
+import { scoreRecord, tierFromScore, type LocPrecision } from "@startup-atlas/core";
 import { uploadBufferToR2, extensionForContentType } from "@/lib/r2";
 import { ADMIN_COOKIE_NAME, verifySessionCookieValue } from "./auth";
 
@@ -114,6 +117,58 @@ export async function rejectPayment(id: number, notes: string) {
   revalidatePath("/admin/payments");
 }
 
+// apps/admin/brands/[id] — corrects the facts the pipeline scraped wrong
+// (bad sector, missing founded_year, etc.). Never a raw status override —
+// score/status are always recomputed from these fields via the same
+// scoreRecord/tierFromScore packages/core uses everywhere else, so a
+// correction can move a brand up (or down) a tier honestly instead of an
+// admin just declaring it published.
+export async function updateBrand(id: string, formData: FormData) {
+  await requireAdmin();
+  const current = await getBrandForAdmin(id);
+  if (!current) throw new Error(`Brand ${id} not found`);
+
+  const foundedYearRaw = formData.get("foundedYear")?.toString().trim();
+  const fields = {
+    name: formData.get("name")?.toString().trim() || current.name,
+    tagline: formData.get("tagline")?.toString().trim() || null,
+    description: formData.get("description")?.toString().trim() || null,
+    sector: formData.get("sector")?.toString().trim() || null,
+    stage: formData.get("stage")?.toString().trim() || null,
+    website: formData.get("website")?.toString().trim() || null,
+    domain: formData.get("domain")?.toString().trim() || null,
+    foundedYear: foundedYearRaw ? Number(foundedYearRaw) : null,
+    hiring: formData.get("hiring") === "on",
+    kind: (formData.get("kind")?.toString() as "startup" | "vc" | "mnc") || current.kind,
+  };
+
+  let domain = fields.domain;
+  if (!domain && fields.website) {
+    try {
+      domain = new URL(fields.website).hostname.replace(/^www\./, "");
+    } catch {
+      domain = null;
+    }
+  }
+
+  const score = scoreRecord({
+    hasWebsite: !!fields.website,
+    hasDomain: !!domain,
+    hasSector: !!fields.sector,
+    hasStage: !!fields.stage,
+    descriptionLength: fields.description?.length ?? 0,
+    hasFoundedYear: !!fields.foundedYear,
+    precision: (current.precision as LocPrecision | null) ?? "synthetic",
+    seenInSourceCount: 1,
+  });
+  const status = tierFromScore(score);
+
+  await updateBrandFacts(id, { ...fields, domain }, score, status);
+  revalidatePath("/admin/brands");
+  revalidatePath(`/admin/brands/${id}`);
+  revalidatePath("/admin/review");
+}
+
 export async function approveReferralOffer(id: number) {
   await requireAdmin();
   await setReferralOfferStatus(id, "approved");
@@ -137,6 +192,37 @@ export async function setReferralRequestState(id: number, status: ReferralReques
   await requireAdmin();
   await setReferralRequestStatus(id, status, notes);
   revalidatePath("/admin/referrals");
+}
+
+// "Run ingest" (app/admin/(panel)/ingest/page.tsx) — Vercel's serverless
+// functions can't run a long scraping job inline (BUILD_PLAN.md Phase 4),
+// so this queues the actual work by firing GitHub Actions' workflow_dispatch
+// REST API against .github/workflows/discovery.yml instead of scraping
+// from within the request. Needs a GH_ACTIONS_TOKEN env var (a PAT with
+// "Actions: write" on this repo) — without it this throws, which the page
+// surfaces as an error rather than silently doing nothing.
+export async function triggerIngest(city: "" | "pune" | "mumbai") {
+  await requireAdmin();
+  const token = process.env.GH_ACTIONS_TOKEN;
+  if (!token) {
+    throw new Error("GH_ACTIONS_TOKEN is not set — can't trigger the discovery workflow.");
+  }
+  const res = await fetch(
+    "https://api.github.com/repos/Pa04rth/startup_atlas/actions/workflows/discovery.yml/dispatches",
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: "application/vnd.github+json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ ref: "main", inputs: { city } }),
+    }
+  );
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new Error(`GitHub API returned ${res.status}: ${body.slice(0, 300)}`);
+  }
 }
 
 export async function logout() {

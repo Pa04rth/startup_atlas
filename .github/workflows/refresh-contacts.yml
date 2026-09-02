@@ -1,0 +1,41 @@
+name: Refresh contacts
+
+# Weekly maintenance job (CLAUDE.md §12 phase 2 spirit, extended to
+# contacts) - re-checks every published/probable brand's own website for
+# public mailto: HR/careers/leadership addresses and upserts
+# company_contacts (services/pipeline/src/steps/scrape_contacts.ts). This
+# is the Phase 7 "company_site.ts" gap - without it, company_contacts stays
+# close to empty since none of the discovery sources (Wellfound, Inc42,
+# incubator portfolios) expose contact emails themselves. Weekly, not
+# daily like jobs/news, since a company's published contact info changes
+# far less often than its open roles, and this walk is heavier per-brand
+# (up to 5 page fetches vs. refresh-jobs' 2).
+
+on:
+  schedule:
+    - cron: "0 5 * * 1" # 05:00 UTC every Monday, after discovery.yml
+  workflow_dispatch: {}
+
+jobs:
+  refresh-contacts:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        city: [pune, mumbai]
+      fail-fast: false
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Refresh contacts for ${{ matrix.city }}
+        run: pnpm --filter services-pipeline run refresh-contacts ${{ matrix.city }}
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}

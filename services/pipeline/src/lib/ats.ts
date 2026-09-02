@@ -60,6 +60,11 @@ function findLeverSlug(html: string): string | null {
   return m ? m[1].toLowerCase() : null;
 }
 
+function findAshbySlug(html: string): string | null {
+  const m = html.match(/jobs\.ashbyhq\.com\/([a-z0-9-]+)/i);
+  return m ? m[1].toLowerCase() : null;
+}
+
 type GreenhouseJob = { title?: string; absolute_url?: string; updated_at?: string };
 type GreenhouseBoard = { jobs?: GreenhouseJob[] };
 
@@ -104,6 +109,33 @@ async function fetchLever(slug: string): Promise<JobItem[] | null> {
     });
 }
 
+// Ashby's public, unauthenticated Job Board API — same "meant for
+// embedding, no scraping fragility" case as Greenhouse/Lever. Verified live
+// against api.ashbyhq.com/posting-api/job-board/ashby: { jobs: [{ title,
+// jobUrl, applyUrl, publishedAt, isListed, ... }] }. Only isListed jobs are
+// actually open — Ashby returns closed-but-recent postings too.
+type AshbyJob = { title?: string; applyUrl?: string; jobUrl?: string; publishedAt?: string; isListed?: boolean };
+type AshbyBoard = { jobs?: AshbyJob[] };
+
+async function fetchAshby(slug: string): Promise<JobItem[] | null> {
+  const data = await fetchJson<AshbyBoard>(`https://api.ashbyhq.com/posting-api/job-board/${slug}`);
+  if (!data?.jobs) return null;
+  return data.jobs
+    .filter((j): j is Required<Pick<AshbyJob, "title">> & AshbyJob => !!j.title && j.isListed !== false)
+    .map((j) => {
+      const { seniority, fresherFriendly } = inferSeniority(j.title);
+      return {
+        title: j.title.trim(),
+        track: inferTrack(j.title),
+        seniority,
+        fresherFriendly,
+        applyUrl: j.applyUrl ?? j.jobUrl ?? `https://jobs.ashbyhq.com/${slug}`,
+        sourceUrl: `https://jobs.ashbyhq.com/${slug}`,
+        postedAt: j.publishedAt ?? null,
+      };
+    });
+}
+
 // Returns null when no known ATS is detected — an honest "nothing found",
 // not an error, and never a reason to fall back to guessing.
 export async function discoverAtsJobs(website: string): Promise<JobItem[] | null> {
@@ -123,6 +155,9 @@ export async function discoverAtsJobs(website: string): Promise<JobItem[] | null
 
   const leverSlug = findLeverSlug(html);
   if (leverSlug) return fetchLever(leverSlug);
+
+  const ashbySlug = findAshbySlug(html);
+  if (ashbySlug) return fetchAshby(ashbySlug);
 
   return null;
 }

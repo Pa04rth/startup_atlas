@@ -2,13 +2,9 @@
 
 import { useState } from "react";
 import { PaymentQR } from "@/components/PaymentQR";
+import { inputClass, labelClass, primaryButtonClass, errorClass, successCardClass } from "./ui";
 
 type Kind = "ad_booking" | "subscription" | "connect_request" | "referral_request";
-
-const inputClass =
-  "mt-1.5 w-full rounded-lg border border-neutral-300 px-3.5 py-2.5 text-sm text-neutral-900 shadow-sm " +
-  "transition placeholder:text-neutral-400 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/30";
-const labelClass = "block text-sm font-medium text-neutral-800";
 
 export function PaymentVerificationForm({
   kind,
@@ -59,8 +55,8 @@ export function PaymentVerificationForm({
 
   if (status === "done") {
     return (
-      <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-6 text-center">
-        <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-emerald-100 text-lg">✓</div>
+      <div className={successCardClass}>
+        <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-emerald-100 text-lg text-emerald-700">✓</div>
         <p className="mt-3 text-sm font-medium text-emerald-900">
           Got it — we'll verify the payment and confirm by email, usually within a day.
         </p>
@@ -69,7 +65,7 @@ export function PaymentVerificationForm({
   }
 
   return (
-    <div className="space-y-5 rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm">
+    <div className="space-y-5 rounded-2xl border border-neutral-200 bg-white p-6 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_8px_24px_-12px_rgba(0,0,0,0.08)] sm:p-8">
       <PaymentQR amountInr={amountInr} />
 
       <form onSubmit={handleSubmit} className="space-y-4">
@@ -102,15 +98,9 @@ export function PaymentVerificationForm({
           />
         </div>
 
-        {error && (
-          <p className="rounded-lg border border-red-200 bg-red-50 px-3.5 py-2.5 text-sm text-red-700">{error}</p>
-        )}
+        {error && <p className={errorClass}>{error}</p>}
 
-        <button
-          type="submit"
-          disabled={status === "submitting"}
-          className="w-full rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
-        >
+        <button type="submit" disabled={status === "submitting"} className={primaryButtonClass}>
           {status === "submitting" ? "Submitting…" : "I've paid — submit"}
         </button>
       </form>

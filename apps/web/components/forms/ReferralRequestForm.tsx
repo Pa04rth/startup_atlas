@@ -3,11 +3,7 @@
 import { useState } from "react";
 import { PaymentVerificationForm } from "./PaymentVerificationForm";
 import type { PublicReferralOffer } from "@startup-atlas/db";
-
-const inputClass =
-  "mt-1.5 w-full rounded-lg border border-neutral-300 px-3.5 py-2.5 text-sm text-neutral-900 shadow-sm " +
-  "transition placeholder:text-neutral-400 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/30";
-const labelClass = "block text-sm font-medium text-neutral-800";
+import { cardClass, inputClass, labelClass, primaryButtonClass, secondaryButtonClass, errorClass } from "./ui";
 
 export function ReferralRequestForm({ offer, onDone }: { offer: PublicReferralOffer; onDone: () => void }) {
   const [requestId, setRequestId] = useState<number | null>(null);
@@ -53,7 +49,7 @@ export function ReferralRequestForm({ offer, onDone }: { offer: PublicReferralOf
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm">
+    <form onSubmit={handleSubmit} className={cardClass}>
       <input type="text" name="website" tabIndex={-1} autoComplete="off" className="absolute left-[-9999px]" aria-hidden="true" />
 
       <div>
@@ -88,17 +84,13 @@ export function ReferralRequestForm({ offer, onDone }: { offer: PublicReferralOf
         <input name="resumeUrl" type="url" placeholder="https://" className={inputClass} />
       </div>
 
-      {error && <p className="rounded-lg border border-red-200 bg-red-50 px-3.5 py-2.5 text-sm text-red-700">{error}</p>}
+      {error && <p className={errorClass}>{error}</p>}
 
       <div className="flex gap-2">
-        <button type="button" onClick={onDone} className="rounded-lg border border-neutral-300 px-4 py-2.5 text-sm font-medium text-neutral-600 hover:bg-neutral-50">
+        <button type="button" onClick={onDone} className={secondaryButtonClass}>
           Cancel
         </button>
-        <button
-          type="submit"
-          disabled={loading}
-          className="flex-1 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
-        >
+        <button type="submit" disabled={loading} className={`flex-1 ${primaryButtonClass}`}>
           {loading ? "Submitting…" : "Continue to payment"}
         </button>
       </div>

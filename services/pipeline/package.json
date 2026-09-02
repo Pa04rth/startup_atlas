@@ -7,6 +7,7 @@
     "start": "tsx --env-file-if-exists=../../.env src/run.ts",
     "refresh-news": "tsx --env-file-if-exists=../../.env src/refresh-news.ts",
     "refresh-jobs": "tsx --env-file-if-exists=../../.env src/refresh-jobs.ts",
+    "refresh-contacts": "tsx --env-file-if-exists=../../.env src/refresh-contacts.ts",
     "cache-logos": "tsx --env-file-if-exists=../../.env src/cache-logos.ts",
     "import-curated": "tsx --env-file-if-exists=../../.env src/import-curated.ts",
     "typecheck": "tsc --noEmit"

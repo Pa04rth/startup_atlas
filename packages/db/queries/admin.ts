@@ -43,6 +43,172 @@ export async function getBrandsByStatus(status: ReviewStatus): Promise<AdminBran
   }));
 }
 
+// Bulk browse/search across every brand regardless of status — the gap
+// BUILD_PLAN.md's Phase 4 status note flagged as "not built this pass."
+// This is where an admin corrects what the pipeline got wrong (bad
+// geocode, wrong sector), not just approve/archive the review queue.
+export async function searchBrands(filters: {
+  cityId?: string;
+  status?: ReviewStatus;
+  query?: string;
+  limit: number;
+  offset: number;
+}): Promise<{ rows: AdminBrandRow[]; total: number }> {
+  const pool = getPool();
+  const conditions: string[] = [];
+  const params: unknown[] = [];
+
+  if (filters.cityId) {
+    params.push(filters.cityId);
+    conditions.push(`b.city_id = $${params.length}`);
+  }
+  if (filters.status) {
+    params.push(filters.status);
+    conditions.push(`b.status = $${params.length}`);
+  }
+  if (filters.query) {
+    params.push(`%${filters.query}%`);
+    conditions.push(`b.name ilike $${params.length}`);
+  }
+  const where = conditions.length ? `where ${conditions.join(" and ")}` : "";
+
+  const { rows: countRows } = await pool.query(`select count(*)::int as total from brands b ${where}`, params);
+
+  params.push(filters.limit, filters.offset);
+  const { rows } = await pool.query(
+    `select b.id, b.city_id, b.slug, b.name, b.sector, b.stage, b.score, b.status,
+            b.website, o.precision, b.created_at
+     from brands b
+     left join offices o on o.brand_id = b.id
+     ${where}
+     order by b.created_at desc
+     limit $${params.length - 1} offset $${params.length}`,
+    params
+  );
+
+  return {
+    total: countRows[0].total as number,
+    rows: rows.map((r) => ({
+      id: r.id,
+      cityId: r.city_id,
+      slug: r.slug,
+      name: r.name,
+      sector: r.sector,
+      stage: r.stage,
+      score: r.score,
+      status: r.status,
+      website: r.website,
+      precision: r.precision,
+      createdAt: r.created_at,
+    })),
+  };
+}
+
+export type AdminBrandDetail = {
+  id: string;
+  cityId: string;
+  slug: string;
+  name: string;
+  kind: "startup" | "vc" | "mnc";
+  tagline: string | null;
+  description: string | null;
+  sector: string | null;
+  stage: string | null;
+  website: string | null;
+  domain: string | null;
+  foundedYear: number | null;
+  hiring: boolean;
+  logoUrl: string | null;
+  score: number;
+  status: ReviewStatus;
+  precision: string | null;
+  area: string | null;
+  address: string | null;
+};
+
+export async function getBrandForAdmin(id: string): Promise<AdminBrandDetail | null> {
+  const pool = getPool();
+  const { rows } = await pool.query(
+    `select b.id, b.city_id, b.slug, b.name, b.kind, b.tagline, b.description, b.sector, b.stage,
+            b.website, b.domain, b.founded_year, b.hiring, b.logo_url, b.score, b.status,
+            o.precision, o.area, o.address
+     from brands b
+     left join offices o on o.brand_id = b.id
+     where b.id = $1`,
+    [id]
+  );
+  if (rows.length === 0) return null;
+  const r = rows[0];
+  return {
+    id: r.id,
+    cityId: r.city_id,
+    slug: r.slug,
+    name: r.name,
+    kind: r.kind,
+    tagline: r.tagline,
+    description: r.description,
+    sector: r.sector,
+    stage: r.stage,
+    website: r.website,
+    domain: r.domain,
+    foundedYear: r.founded_year,
+    hiring: r.hiring,
+    logoUrl: r.logo_url,
+    score: r.score,
+    status: r.status,
+    precision: r.precision,
+    area: r.area,
+    address: r.address,
+  };
+}
+
+// Admin corrections to the facts the pipeline scraped — never a raw status
+// override (that stays derived from tierFromScore, per BUILD_PLAN.md's
+// non-negotiables). Fixing a wrong sector or adding a missing founded_year
+// here can legitimately move a brand up a tier; the caller (server action)
+// recomputes score/status from these same fields via
+// @startup-atlas/core's scoreRecord/tierFromScore right after this call.
+export async function updateBrandFacts(
+  id: string,
+  fields: {
+    name: string;
+    tagline: string | null;
+    description: string | null;
+    sector: string | null;
+    stage: string | null;
+    website: string | null;
+    domain: string | null;
+    foundedYear: number | null;
+    hiring: boolean;
+    kind: "startup" | "vc" | "mnc";
+  },
+  score: number,
+  status: ReviewStatus
+): Promise<void> {
+  const pool = getPool();
+  await pool.query(
+    `update brands set
+       name=$2, tagline=$3, description=$4, sector=$5, stage=$6, website=$7, domain=$8,
+       founded_year=$9, hiring=$10, kind=$11, score=$12, status=$13, updated_at=now()
+     where id=$1`,
+    [
+      id,
+      fields.name,
+      fields.tagline,
+      fields.description,
+      fields.sector,
+      fields.stage,
+      fields.website,
+      fields.domain,
+      fields.foundedYear,
+      fields.hiring,
+      fields.kind,
+      score,
+      status,
+    ]
+  );
+}
+
 export async function setBrandStatus(id: string, status: ReviewStatus): Promise<void> {
   const pool = getPool();
   await pool.query(`update brands set status=$2, updated_at=now() where id=$1`, [id, status]);
@@ -60,6 +226,49 @@ export async function getStatusCounts(): Promise<Record<string, number>> {
   const out: Record<string, number> = {};
   for (const r of rows) out[r.status as string] = r.count as number;
   return out;
+}
+
+// First-party analytics (CLAUDE.md §10: "own page_views table = first-party
+// truth the admin panel can read for /stats"). No cookies, no client id —
+// just a path + referrer + day, enough for a rough traffic shape without
+// needing PostHog/Cloudflare Analytics set up first.
+export async function insertPageView(input: {
+  cityId?: string | null;
+  path: string;
+  referrer?: string | null;
+  event?: string | null;
+}): Promise<void> {
+  const pool = getPool();
+  await pool.query(`insert into page_views (city_id, path, referrer, event) values ($1,$2,$3,$4)`, [
+    input.cityId ?? null,
+    input.path,
+    input.referrer ?? null,
+    input.event ?? "pageview",
+  ]);
+}
+
+export async function getPageViewStats(days = 7): Promise<{ totalViews: number; byDay: Array<{ day: string; count: number }>; topPaths: Array<{ path: string; count: number }> }> {
+  const pool = getPool();
+  const [totalResult, byDayResult, topPathsResult] = await Promise.all([
+    pool.query(`select count(*)::int as total from page_views where created_at > now() - ($1 || ' days')::interval`, [days]),
+    pool.query(
+      `select day::text, count(*)::int as count from page_views
+       where created_at > now() - ($1 || ' days')::interval
+       group by day order by day asc`,
+      [days]
+    ),
+    pool.query(
+      `select path, count(*)::int as count from page_views
+       where created_at > now() - ($1 || ' days')::interval
+       group by path order by count desc limit 10`,
+      [days]
+    ),
+  ]);
+  return {
+    totalViews: totalResult.rows[0]?.total ?? 0,
+    byDay: byDayResult.rows.map((r) => ({ day: r.day, count: r.count })),
+    topPaths: topPathsResult.rows.map((r) => ({ path: r.path, count: r.count })),
+  };
 }
 
 export async function getRecentIngestionRuns(limit = 20) {

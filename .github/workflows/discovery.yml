@@ -1,0 +1,60 @@
+name: Discovery
+
+# Finds NEW companies (CLAUDE.md §12 phase 2: "discovery weekly"). Runs
+# every registered collector (services/pipeline/src/sources/index.ts) for
+# a city via services/pipeline/src/run.ts's normalize -> dedupe ->
+# enrich_llm -> geocode -> verify_score -> upsert chain. Unlike
+# refresh-jobs/refresh-news, this is the one maintenance job that can add
+# brand new `brands` rows (always landing at whatever tier their score
+# earns, never auto-published) - before this workflow existed, a new
+# company only ever got discovered when someone manually ran
+# `pnpm run start <city>` on their own machine.
+#
+# Also the target of "Run ingest" in /admin/ingest, which fires this via
+# workflow_dispatch's REST API with a city input - Vercel's serverless
+# functions can't run a long scraping job inline, so the admin button
+# queues this job instead of scraping from within the request.
+
+on:
+  schedule:
+    - cron: "0 4 * * 1" # 04:00 UTC every Monday ≈ 09:30 IST
+  workflow_dispatch:
+    inputs:
+      city:
+        description: "City to run discovery for (leave blank for both)"
+        required: false
+        type: choice
+        options: ["", "pune", "mumbai"]
+
+jobs:
+  discovery:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        city: [pune, mumbai]
+      fail-fast: false # a bad run for one city shouldn't cancel the other
+    # On a manual dispatch with a specific city chosen, skip the other
+    # matrix leg entirely rather than running (and wasting time on) both.
+    if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.city == '' || github.event.inputs.city == matrix.city }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Run discovery for ${{ matrix.city }}
+        run: pnpm --filter services-pipeline run start ${{ matrix.city }}
+        env:
+          # Repo Settings → Secrets and variables → Actions → New repository
+          # secret. Use the same Neon/Supabase pooler URL as the local .env.
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          # Optional — LLM enrichment degrades gracefully without it (see
+          # services/pipeline/src/steps/enrich_llm.ts); no local Ollama
+          # instance exists on a GitHub-hosted runner, so this always runs
+          # unenriched here. That's fine, it never blocks discovery.

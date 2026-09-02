@@ -31,3 +31,26 @@ export async function getPublicContacts(brandId: string): Promise<CompanyContact
     verifiedAt: r.verified_at,
   }));
 }
+
+// Written by services/pipeline/src/steps/scrape_contacts.ts. Re-run safe
+// via the (brand_id, type, coalesce(email,'')) unique index (migration
+// 0007) — a weekly re-scrape upserts the same rows instead of piling up
+// duplicates; source_url always required, matching the schema's own
+// provenance rule (no source_url, no publish).
+export async function upsertCompanyContact(input: {
+  brandId: string;
+  type: "hr" | "careers" | "leadership" | "general";
+  email?: string | null;
+  url?: string | null;
+  sourceUrl: string;
+}): Promise<void> {
+  const pool = getPool();
+  await pool.query(
+    `insert into company_contacts (brand_id, type, email, url, is_public, source_url, verified_at)
+     values ($1,$2,$3,$4,true,$5,now())
+     on conflict (brand_id, type, coalesce(email, ''))
+     do update set url = excluded.url, source_url = excluded.source_url, verified_at = now()
+     where company_contacts.opted_out = false`,
+    [input.brandId, input.type, input.email ?? null, input.url ?? null, input.sourceUrl]
+  );
+}

@@ -1,11 +1,7 @@
 "use client";
 
 import { useState } from "react";
-
-const inputClass =
-  "mt-1.5 w-full rounded-lg border border-neutral-300 px-3.5 py-2.5 text-sm text-neutral-900 shadow-sm " +
-  "transition placeholder:text-neutral-400 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/30";
-const labelClass = "block text-sm font-medium text-neutral-800";
+import { cardClass, inputClass, labelClass, sectionTitleClass, primaryButtonClass, errorClass, successCardClass, fileInputClass } from "./ui";
 
 export function ManageCompanyForm({
   cityId,
@@ -50,8 +46,8 @@ export function ManageCompanyForm({
 
   if (status === "done") {
     return (
-      <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-6 text-center">
-        <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-emerald-100 text-lg">
+      <div className={successCardClass}>
+        <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-emerald-100 text-lg text-emerald-700">
           ✓
         </div>
         <p className="mt-3 text-sm font-medium text-emerald-900">
@@ -62,7 +58,7 @@ export function ManageCompanyForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6 rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm">
+    <form onSubmit={handleSubmit} className={cardClass}>
       <input type="text" name="website_url" tabIndex={-1} autoComplete="off" className="absolute left-[-9999px]" aria-hidden="true" />
       <input type="hidden" name="kind" value="edit" />
       <input type="hidden" name="targetBrandId" value={brandId} />
@@ -70,7 +66,7 @@ export function ManageCompanyForm({
       <input type="hidden" name="name" value={brandName} />
 
       <section className="space-y-4">
-        <h2 className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+        <h2 className={sectionTitleClass}>
           Update {brandName}&apos;s listing
         </h2>
 
@@ -85,7 +81,7 @@ export function ManageCompanyForm({
             name="logo"
             type="file"
             accept="image/png,image/jpeg,image/svg+xml,image/webp"
-            className="mt-1.5 w-full text-sm text-neutral-600 file:mr-3 file:rounded-lg file:border-0 file:bg-neutral-100 file:px-3.5 file:py-2 file:text-sm file:font-medium file:text-neutral-700 file:transition hover:file:bg-neutral-200"
+            className={fileInputClass}
           />
           <p className="mt-1.5 text-xs text-neutral-400">PNG, JPG, SVG, or WEBP, under 1MB — leave blank to keep the current logo.</p>
         </div>
@@ -112,20 +108,16 @@ export function ManageCompanyForm({
       </section>
 
       <section className="space-y-4 border-t border-neutral-100 pt-6">
-        <h2 className="text-xs font-semibold uppercase tracking-wide text-neutral-400">Your contact</h2>
+        <h2 className={sectionTitleClass}>Your contact</h2>
         <div>
           <label className={labelClass}>Email (for follow-up, not published)</label>
           <input name="email" type="email" placeholder="you@company.com" className={inputClass} />
         </div>
       </section>
 
-      {error && <p className="rounded-lg border border-red-200 bg-red-50 px-3.5 py-2.5 text-sm text-red-700">{error}</p>}
+      {error && <p className={errorClass}>{error}</p>}
 
-      <button
-        type="submit"
-        disabled={status === "submitting"}
-        className="w-full rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
-      >
+      <button type="submit" disabled={status === "submitting"} className={primaryButtonClass}>
         {status === "submitting" ? "Submitting…" : "Submit changes for review"}
       </button>
     </form>

@@ -132,7 +132,6 @@ export default async function CompanyPage({
       </div>
 
       <div className="mt-10 space-y-8">
-        <JobsPanel jobs={jobs} cityName={city.name} brandName={brand.name} citySlug={city.id} />
         <ReferralSection
           cityId={city.id}
           brandSlug={brand.slug}
@@ -141,6 +140,7 @@ export default async function CompanyPage({
           jobs={jobs}
         />
         <ContactsList contacts={contacts} />
+        <JobsPanel jobs={jobs} cityName={city.name} brandName={brand.name} citySlug={city.id} />
         <NewsPanel articles={news} />
       </div>
     </main>

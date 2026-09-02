@@ -6,7 +6,6 @@
 // class names, which change on every deploy.
 import type { RawRecord } from "../types";
 
-const BASE_URL = "https://wellfound.com/startups/location/pune";
 const SOURCE_NAME = "wellfound";
 const PAGE_DELAY_MS = 600; // polite spacing between page fetches
 const MAX_PAGES = 25; // safety net if pageCount ever comes back wrong
@@ -48,12 +47,17 @@ function findSearchResultsKey(rootQuery: Record<string, unknown>, page: number):
   );
 }
 
-export async function collectWellfoundPune(): Promise<RawRecord[]> {
+// Parametrized by location slug so the same collector covers every city —
+// Wellfound's location pages use the same __NEXT_DATA__/Apollo shape for
+// any location slug (verified against .../location/mumbai too), only the
+// URL and totalStartupCount differ.
+async function collectWellfoundByLocation(location: string): Promise<RawRecord[]> {
+  const baseUrl = `https://wellfound.com/startups/location/${location}`;
   const records: RawRecord[] = [];
   let pageCount = 1;
 
   for (let page = 1; page <= Math.min(pageCount, MAX_PAGES); page++) {
-    const url = page === 1 ? BASE_URL : `${BASE_URL}?page=${page}`;
+    const url = page === 1 ? baseUrl : `${baseUrl}?page=${page}`;
     const res = await fetch(url, {
       headers: { "User-Agent": "Mozilla/5.0 (compatible; startup-atlas/0.1)" },
     });
@@ -96,4 +100,12 @@ export async function collectWellfoundPune(): Promise<RawRecord[]> {
   }
 
   return records;
+}
+
+export function collectWellfoundPune(): Promise<RawRecord[]> {
+  return collectWellfoundByLocation("pune");
+}
+
+export function collectWellfoundMumbai(): Promise<RawRecord[]> {
+  return collectWellfoundByLocation("mumbai");
 }

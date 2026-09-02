@@ -1,11 +1,18 @@
-import { getStatusCounts, getRecentIngestionRuns, getSubmissions, getPendingVerifications } from "@startup-atlas/db";
+import {
+  getStatusCounts,
+  getRecentIngestionRuns,
+  getSubmissions,
+  getPendingVerifications,
+  getPageViewStats,
+} from "@startup-atlas/db";
 
 export default async function AdminDashboardPage() {
-  const [statusCounts, runs, submissions, payments] = await Promise.all([
+  const [statusCounts, runs, submissions, payments, pageViews] = await Promise.all([
     getStatusCounts(),
     getRecentIngestionRuns(10),
     getSubmissions("pending"),
     getPendingVerifications(),
+    getPageViewStats(7),
   ]);
 
   const cards = [
@@ -13,6 +20,7 @@ export default async function AdminDashboardPage() {
     { label: "Published", value: statusCounts.published ?? 0 },
     { label: "Pending submissions", value: submissions.length, href: "/admin/submissions" },
     { label: "Pending payments", value: payments.length, href: "/admin/payments" },
+    { label: "Page views (7d)", value: pageViews.totalViews },
   ];
 
   return (
@@ -58,6 +66,30 @@ export default async function AdminDashboardPage() {
           </table>
         </div>
       </div>
+
+      {pageViews.topPaths.length > 0 && (
+        <div>
+          <h2 className="text-sm font-semibold text-neutral-900">Top pages (7d)</h2>
+          <div className="mt-2 overflow-x-auto rounded-lg border border-neutral-200 bg-white">
+            <table className="w-full text-left text-sm">
+              <thead className="border-b border-neutral-200 text-neutral-500">
+                <tr>
+                  <th className="px-3 py-2 font-medium">Path</th>
+                  <th className="px-3 py-2 font-medium">Views</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pageViews.topPaths.map((p) => (
+                  <tr key={p.path} className="border-b border-neutral-100 last:border-0">
+                    <td className="px-3 py-2 text-neutral-700">{p.path}</td>
+                    <td className="px-3 py-2">{p.count}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
