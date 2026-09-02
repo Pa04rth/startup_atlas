@@ -10,7 +10,13 @@
 // that isn't actually on the page. A wrong guess that looks confident is
 // worse than finding nothing (same rule REPLIT_AGENT_PROMPT.md states for
 // the discovery side of this pipeline).
+import { setMaxListeners } from "node:events";
 import type { CompanyContact } from "@startup-atlas/db";
+
+// Same fix as lib/ats.ts's AbortSignal.timeout() listeners across many
+// brands — harmless, but past Node's default of 10 it prints a
+// MaxListenersExceededWarning on every run that looks like a real leak.
+setMaxListeners(50);
 
 const PAGES_TO_CHECK = ["", "/careers", "/about", "/team", "/contact"];
 const FETCH_TIMEOUT_MS = 6000;
