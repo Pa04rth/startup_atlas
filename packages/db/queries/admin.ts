@@ -414,14 +414,42 @@ export async function convertSubmissionToBrand(
     slug = `${baseSlug}-${i}`;
   }
 
+  // sector/area ride along in the submission's raw JSON rather than getting
+  // their own columns — same carrier the logo already uses, so /submit can
+  // collect them with no migration. Both are what the submitter told us,
+  // which is exactly why they only take effect once a human has approved
+  // the submission (this function).
+  const raw = submission.raw as { sector?: string; area?: string } | null;
+  const sector = raw?.sector?.trim() || null;
+  const area = raw?.area?.trim() || null;
+
+  // If the submitter named an area we already have geocoded offices in, put
+  // the pin at that area's centroid (averaged from those offices) and label
+  // it `area` — honestly what it is. Without a match we fall back to the
+  // city centroid at `synthetic`, same as before; the area string is still
+  // recorded either way so the profile and the admin can show it.
+  let placement = { lng: centroid.lng, lat: centroid.lat, precision: "synthetic" as string };
+  if (area) {
+    const { rows: areaRows } = await pool.query(
+      `select ST_X(ST_Centroid(ST_Collect(geom))) as lng, ST_Y(ST_Centroid(ST_Collect(geom))) as lat
+       from offices
+       where city_id = $1 and lower(area) = lower($2) and geom is not null`,
+      [submission.cityId, area]
+    );
+    const match = areaRows[0];
+    if (match?.lng != null && match?.lat != null) {
+      placement = { lng: Number(match.lng), lat: Number(match.lat), precision: "area" };
+    }
+  }
+
   const score = scoreRecord({
     hasWebsite: !!submission.website,
     hasDomain: !!domain,
-    hasSector: false,
+    hasSector: !!sector,
     hasStage: !!submission.stage,
     descriptionLength: submission.tagline?.length ?? 0,
     hasFoundedYear: false,
-    precision: "synthetic",
+    precision: placement.precision as Parameters<typeof scoreRecord>[0]["precision"],
     seenInSourceCount: 1,
   });
   const status = tierFromScore(score);
@@ -430,13 +458,14 @@ export async function convertSubmissionToBrand(
     `insert into brands
        (city_id, slug, name, kind, tagline, sector, stage, tags, website, domain,
         hiring, score, status, last_verified_at)
-     values ($1,$2,$3,'startup',$4,null,$5,'{}',$6,$7,$8,$9,$10, now())
+     values ($1,$2,$3,'startup',$4,$5,$6,'{}',$7,$8,$9,$10,$11, now())
      returning id`,
     [
       submission.cityId,
       slug,
       submission.name,
       submission.tagline,
+      sector,
       submission.stage,
       submission.website,
       domain,
@@ -448,9 +477,9 @@ export async function convertSubmissionToBrand(
   const brandId = brandRows[0].id as string;
 
   await pool.query(
-    `insert into offices (brand_id, city_id, geom, precision, is_public_office, location_source)
-     values ($1,$2, ST_SetSRID(ST_MakePoint($3,$4),4326), 'synthetic', false, 'public-submission')`,
-    [brandId, submission.cityId, centroid.lng, centroid.lat]
+    `insert into offices (brand_id, city_id, geom, precision, area, is_public_office, location_source)
+     values ($1,$2, ST_SetSRID(ST_MakePoint($3,$4),4326), $5, $6, false, 'public-submission')`,
+    [brandId, submission.cityId, placement.lng, placement.lat, placement.precision, area]
   );
 
   if (submission.jobsUrl) {

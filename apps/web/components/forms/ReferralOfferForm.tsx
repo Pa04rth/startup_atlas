@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import type { BrandJobPosting } from "@startup-atlas/db";
-import { cardClass, inputClass, labelClass, primaryButtonClass, errorClass, successCardClass, fileInputClass } from "./ui";
 
 export function ReferralOfferForm({
   cityId,
@@ -46,12 +45,22 @@ export function ReferralOfferForm({
 
   if (status === "done") {
     return (
-      <div className={successCardClass}>
-        <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-emerald-100 text-lg text-emerald-700">✓</div>
-        <p className="mt-3 text-sm font-medium text-emerald-900">
+      <div className="py-6 text-center">
+        <div
+          className="mx-auto flex h-11 w-11 items-center justify-center rounded-full text-lg"
+          style={{ background: "var(--color-accent-100)", color: "var(--color-accent-700)" }}
+        >
+          ✓
+        </div>
+        <p className="mt-3 text-sm font-medium">
           Thanks — we&apos;ll review your proof and publish the offer once verified.
         </p>
-        <button type="button" onClick={onDone} className="mt-3 text-sm font-medium text-emerald-700 hover:underline">
+        <button
+          type="button"
+          onClick={onDone}
+          className="mt-3 text-sm font-medium underline"
+          style={{ color: "var(--color-accent-700)" }}
+        >
           Close
         </button>
       </div>
@@ -59,22 +68,25 @@ export function ReferralOfferForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className={cardClass}>
+    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
       <input type="text" name="website_url" tabIndex={-1} autoComplete="off" className="absolute left-[-9999px]" aria-hidden="true" />
 
-      <div className="rounded-lg bg-emerald-50 px-3.5 py-2.5 text-xs text-emerald-800">
+      <div
+        className="rounded-sm border px-3.5 py-2.5 text-xs"
+        style={{ borderColor: "var(--color-divider)", background: "var(--color-bg)", color: "var(--color-neutral-700)" }}
+      >
         A candidate pays <strong>₹100</strong> to be referred through you — <strong>₹80 goes to you</strong>, ₹20 to
         the platform, once you&apos;ve actually referred them and we confirm it.
       </div>
 
       <div>
-        <label className={labelClass}>Which role at {brandName}?</label>
+        <label className="fl">Which role at {brandName}?</label>
         {jobs.length > 0 && !customJob ? (
           <>
             <select
               name="jobPostingId"
               required
-              className={inputClass}
+              
               onChange={(e) => {
                 const opt = e.currentTarget.selectedOptions[0];
                 const hidden = e.currentTarget.form?.elements.namedItem("jobTitle") as HTMLInputElement | null;
@@ -89,45 +101,45 @@ export function ReferralOfferForm({
               ))}
             </select>
             <input type="hidden" name="jobTitle" />
-            <button type="button" onClick={() => setCustomJob(true)} className="mt-1.5 text-xs text-neutral-500 hover:underline">
+            <button type="button" onClick={() => setCustomJob(true)} className="mt-1.5 text-xs underline" style={{ color: "var(--color-neutral-600)" }}>
               Role not listed? Enter it manually
             </button>
           </>
         ) : (
-          <input name="jobTitle" required placeholder="e.g. Senior Backend Engineer" className={inputClass} />
+          <input name="jobTitle" required placeholder="e.g. Senior Backend Engineer"  />
         )}
       </div>
 
       <div>
-        <label className={labelClass}>Your name *</label>
-        <input name="referrerName" required className={inputClass} />
+        <label className="fl">Your name *</label>
+        <input name="referrerName" required  />
       </div>
 
       <div>
-        <label className={labelClass}>Your work email *</label>
-        <input name="referrerEmail" type="email" required placeholder="you@company.com" className={inputClass} />
+        <label className="fl">Your work email *</label>
+        <input name="referrerEmail" type="email" required placeholder="you@company.com"  />
       </div>
 
       <div>
-        <label className={labelClass}>Your role/title</label>
-        <input name="referrerRole" placeholder="e.g. Senior Engineer" className={inputClass} />
+        <label className="fl">Your role/title</label>
+        <input name="referrerRole" placeholder="e.g. Senior Engineer"  />
       </div>
 
       <div>
-        <label className={labelClass}>LinkedIn profile</label>
-        <input name="referrerLinkedin" type="url" placeholder="https://linkedin.com/in/you" className={inputClass} />
+        <label className="fl">LinkedIn profile</label>
+        <input name="referrerLinkedin" type="url" placeholder="https://linkedin.com/in/you"  />
       </div>
 
       <div>
-        <label className={labelClass}>Proof you work here — not a government ID *</label>
+        <label className="fl">Proof you work here — not a government ID *</label>
         <input
           name="proof"
           type="file"
           required
           accept="image/png,image/jpeg,image/webp"
-          className={fileInputClass}
+          className="!p-0 file:mr-3 file:cursor-pointer file:border-0 file:bg-[var(--color-neutral-100)] file:px-3.5 file:py-2.5 file:text-sm file:text-[var(--color-neutral-800)]"
         />
-        <p className="mt-1.5 text-xs text-neutral-400">
+        <p className="mt-1.5 text-[11.5px]" style={{ color: "var(--color-neutral-500)" }}>
           Anything that shows you actually work at {brandName} and you&apos;re comfortable sharing: an employee badge,
           a laptop screen with an internal tool/Slack open, an email signature, or a payslip with the amount blacked
           out. PNG/JPG/WEBP, under 3MB. An admin reviews this before your offer goes live — never shown publicly.
@@ -135,23 +147,27 @@ export function ReferralOfferForm({
         <input
           name="proofNote"
           placeholder="What does this image show? (optional, helps the reviewer)"
-          className={`${inputClass} mt-2`}
+          className="mt-2"
         />
       </div>
 
       <div>
-        <label className={labelClass}>Pitch to candidates</label>
+        <label className="fl">Pitch to candidates</label>
         <textarea
           name="pitch"
           rows={2}
           placeholder="Why should someone want your referral? (optional)"
-          className={inputClass}
+          
         />
       </div>
 
-      {error && <p className={errorClass}>{error}</p>}
+      {error && (
+        <p className="rounded-sm border px-3.5 py-2.5 text-sm" style={{ borderColor: "#b3543f", color: "#b3543f" }}>
+          {error}
+        </p>
+      )}
 
-      <button type="submit" disabled={status === "submitting"} className={primaryButtonClass}>
+      <button type="submit" disabled={status === "submitting"} className="cf-primary">
         {status === "submitting" ? "Submitting…" : "Submit for review"}
       </button>
     </form>

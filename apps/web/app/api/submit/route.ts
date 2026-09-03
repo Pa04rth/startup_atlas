@@ -11,13 +11,24 @@ const schema = z.object({
   website: z.string().trim().url().max(500).optional().or(z.literal("")),
   tagline: z.string().trim().max(300).optional().or(z.literal("")),
   stage: z.string().trim().max(100).optional().or(z.literal("")),
+  // Carried in the submission's raw JSON (no dedicated columns) and applied
+  // on approval — see convertSubmissionToBrand, which uses `area` to place
+  // the pin at that area's centroid instead of the city's when we already
+  // have offices there.
+  sector: z.string().trim().max(100).optional().or(z.literal("")),
+  area: z.string().trim().max(120).optional().or(z.literal("")),
   hiring: z.string().optional(), // checkbox: "on" or absent from FormData
   jobsUrl: z.string().trim().url().max(500).optional().or(z.literal("")),
   email: z.string().trim().email().max(200).optional().or(z.literal("")),
   honeypot: z.string().max(0), // must be empty — see SubmitForm.tsx
   // Present only from the "Manage company" edit flow (ManageCompanyForm) —
   // absent/empty means this is a brand-new-company submission.
-  kind: z.enum(["new", "edit"]).optional(),
+  // `.or(z.literal(""))` matters: `fields` below reads every key with a
+  // `?? ""` fallback, so a form with no `kind` input (SubmitForm — only
+  // ManageCompanyForm sets it, to "edit") sends an empty string, not
+  // undefined. Without this the whole new-company path 400s on every
+  // submission. Same reason targetBrandId allows "".
+  kind: z.enum(["new", "edit"]).optional().or(z.literal("")),
   targetBrandId: z.string().uuid().optional().or(z.literal("")),
 });
 
@@ -31,7 +42,7 @@ export async function POST(request: Request) {
   }
 
   const fields = Object.fromEntries(
-    ["cityId", "name", "website", "tagline", "stage", "hiring", "jobsUrl", "email", "kind", "targetBrandId"].map(
+    ["cityId", "name", "website", "tagline", "stage", "sector", "area", "hiring", "jobsUrl", "email", "kind", "targetBrandId"].map(
       (key) => [key, formData.get(key)?.toString() ?? ""]
     )
   );

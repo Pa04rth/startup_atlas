@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { cities, AD_PRICING, AD_LABELS } from "@startup-atlas/config";
 import { PaymentVerificationForm } from "./PaymentVerificationForm";
-import { cardClass, inputClass, labelClass, primaryButtonClass, errorClass } from "./ui";
 
 export function AdvertiseForm() {
   const [booking, setBooking] = useState<{
@@ -57,7 +56,7 @@ export function AdvertiseForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className={cardClass}>
+    <form onSubmit={handleSubmit}>
       <input
         type="text"
         name="website"
@@ -67,50 +66,58 @@ export function AdvertiseForm() {
         aria-hidden="true"
       />
 
-      <div>
-        <label className={labelClass}>City</label>
-        <select name="cityId" required className={inputClass}>
-          {cities.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      <div>
-        <label className={labelClass}>Ad type</label>
-        <select name="kind" required className={inputClass}>
-          {Object.entries(AD_LABELS).map(([kind, label]) => (
-            <option key={kind} value={kind}>
-              {label}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      <div>
-        <label className={labelClass}>Contact email *</label>
-        <input
-          name="contactEmail"
-          type="email"
-          required
-          placeholder="you@company.com"
-          className={inputClass}
-        />
-      </div>
-
-      {error && <p className={errorClass}>{error}</p>}
-      <div>
-        <p className="text-sm text-neutral-600">
-          After booking, you will receive an email with payment instructions.
-          Once the payment is confirmed, your ad will go live.
+      <div className="border-b px-6 py-5 sm:px-8 sm:py-[26px]" style={{ borderColor: "var(--color-divider)" }}>
+        <h2 className="m-0 text-xl font-semibold sm:text-2xl">Reserve a spot</h2>
+        <p className="mt-2 text-[13px]" style={{ color: "var(--color-neutral-600)" }}>
+          Choose a city and placement. We&apos;ll email payment instructions after review.
         </p>
       </div>
 
-      <button type="submit" disabled={loading} className={primaryButtonClass}>
-        {loading ? "Booking…" : "Book — pay next step"}
-      </button>
+      <div className="flex flex-col gap-5 px-6 py-6 sm:px-8">
+        <div>
+          <label className="fl">City</label>
+          <select name="cityId" required>
+            {cities.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="fl">Ad type</label>
+          <select name="kind" required>
+            {Object.entries(AD_LABELS).map(([kind, label]) => (
+              <option key={kind} value={kind}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="fl">
+            Contact email <span className="req">*</span>
+          </label>
+          <input name="contactEmail" type="email" required placeholder="you@company.com" />
+        </div>
+
+        {error && (
+          <p className="rounded-sm border px-3.5 py-2.5 text-sm" style={{ borderColor: "#b3543f", color: "#b3543f" }}>
+            {error}
+          </p>
+        )}
+
+        <p className="m-0 text-xs" style={{ color: "var(--color-neutral-600)" }}>
+          After booking, you will receive an email with payment instructions. Once payment is
+          confirmed, your ad will go live.
+        </p>
+
+        <button type="submit" disabled={loading} className="cf-primary">
+          {loading ? "Booking…" : "Book — pay next step →"}
+        </button>
+      </div>
     </form>
   );
 }

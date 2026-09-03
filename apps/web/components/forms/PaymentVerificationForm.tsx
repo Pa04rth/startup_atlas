@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { PaymentQR } from "@/components/PaymentQR";
-import { inputClass, labelClass, primaryButtonClass, errorClass, successCardClass } from "./ui";
 
 type Kind = "ad_booking" | "subscription" | "connect_request" | "referral_request";
 
@@ -55,20 +54,25 @@ export function PaymentVerificationForm({
 
   if (status === "done") {
     return (
-      <div className={successCardClass}>
-        <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-emerald-100 text-lg text-emerald-700">✓</div>
-        <p className="mt-3 text-sm font-medium text-emerald-900">
-          Got it — we'll verify the payment and confirm by email, usually within a day.
+      <div className="px-6 py-10 text-center sm:px-8">
+        <div
+          className="mx-auto flex h-11 w-11 items-center justify-center rounded-full text-lg"
+          style={{ background: "var(--color-accent-100)", color: "var(--color-accent-700)" }}
+        >
+          ✓
+        </div>
+        <p className="mt-4 text-sm font-medium">
+          Got it — we&apos;ll verify the payment and confirm by email, usually within a day.
         </p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-5 rounded-2xl border border-neutral-200 bg-white p-6 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_8px_24px_-12px_rgba(0,0,0,0.08)] sm:p-8">
+    <div className="flex flex-col gap-5 px-6 py-6 sm:px-8">
       <PaymentQR amountInr={amountInr} />
 
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className="flex flex-col gap-5">
         <input
           type="text"
           name="website"
@@ -79,28 +83,31 @@ export function PaymentVerificationForm({
         />
 
         <div>
-          <label className={labelClass}>Your name</label>
-          <input name="payerName" placeholder="Optional" className={inputClass} />
+          <label className="fl">Your name</label>
+          <input name="payerName" placeholder="Optional" />
         </div>
 
         <div>
-          <label className={labelClass}>Email or phone *</label>
-          <input name="payerContact" required placeholder="you@company.com" className={inputClass} />
+          <label className="fl">
+            Email or phone <span className="req">*</span>
+          </label>
+          <input name="payerContact" required placeholder="you@company.com" />
         </div>
 
         <div>
-          <label className={labelClass}>UPI transaction ID (UTR) *</label>
-          <input
-            name="transactionId"
-            required
-            placeholder="12-digit reference number from your UPI app"
-            className={inputClass}
-          />
+          <label className="fl">
+            UPI transaction ID (UTR) <span className="req">*</span>
+          </label>
+          <input name="transactionId" required placeholder="12-digit reference number from your UPI app" />
         </div>
 
-        {error && <p className={errorClass}>{error}</p>}
+        {error && (
+          <p className="rounded-sm border px-3.5 py-2.5 text-sm" style={{ borderColor: "#b3543f", color: "#b3543f" }}>
+            {error}
+          </p>
+        )}
 
-        <button type="submit" disabled={status === "submitting"} className={primaryButtonClass}>
+        <button type="submit" disabled={status === "submitting"} className="cf-primary">
           {status === "submitting" ? "Submitting…" : "I've paid — submit"}
         </button>
       </form>

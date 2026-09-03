@@ -115,6 +115,26 @@ export async function getBrandBySlug(cityId: string, slug: string): Promise<Bran
   };
 }
 
+// Distinct area names already in use per city, for the /submit form's area
+// picker. Sourced from offices the pipeline has already geocoded (the
+// `areas` reference table is empty — nothing seeds it today), so the list
+// is exactly the vocabulary the rest of the map already speaks.
+export async function getAreasByCity(): Promise<Record<string, string[]>> {
+  const pool = getPool();
+  const { rows } = await pool.query(
+    `select distinct city_id, area
+     from offices
+     where area is not null and area <> ''
+     order by city_id, area`
+  );
+  const out: Record<string, string[]> = {};
+  for (const r of rows) {
+    const cityId = r.city_id as string;
+    (out[cityId] ??= []).push(r.area as string);
+  }
+  return out;
+}
+
 // Every route in apps/web/app/sitemap.ts needs exactly this — published only.
 export async function getAllPublishedSlugs(): Promise<Array<{ cityId: string; slug: string }>> {
   const pool = getPool();

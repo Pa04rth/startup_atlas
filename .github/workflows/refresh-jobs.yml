@@ -3,12 +3,15 @@ name: Refresh jobs
 # Maintenance-phase job (CLAUDE.md §12/§7: "jobs = refresh_jobs re-visits
 # careers pages, upserts new, expires unseen"), same shape as
 # refresh-news.yml. Re-checks every published/probable brand's own website
-# for a Greenhouse/Lever board (services/pipeline/src/lib/ats.ts) and
-# upserts job_postings. Current real-world hit rate is low (most brands in
-# this dataset don't expose an unbranded ATS board link — see the comment
-# at the top of lib/ats.ts) — this still runs daily so any brand that does
-# add one, or any newly-ingested brand that has one, starts showing real
-# jobs automatically with zero manual work. Never touches brands/offices.
+# for a known ATS board (Greenhouse, Lever, Ashby, Workable, Recruitee,
+# Keka, or SmartRecruiters — services/pipeline/src/lib/ats.ts) and upserts
+# job_postings, tagging any walk-in-drive title (lib/walkin.ts). A brand
+# whose careers page uses none of these (a white-labeled/custom board, or
+# no visible ATS link at all) just correctly finds nothing — see the
+# comment at the top of lib/ats.ts. Still runs daily so any brand that adds
+# a supported board, or any newly-ingested brand that has one, starts
+# showing real jobs automatically with zero manual work. Never touches
+# brands/offices.
 
 on:
   schedule:

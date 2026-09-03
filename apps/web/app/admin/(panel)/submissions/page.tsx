@@ -9,6 +9,18 @@ function logoPathFrom(raw: unknown): string | null {
   return null;
 }
 
+// sector/area have no columns of their own — /submit carries them in the
+// raw JSON and convertSubmissionToBrand applies them on approval (area
+// decides whether the pin lands on that area's centroid or the city's), so
+// they're worth seeing before clicking Approve.
+function rawField(raw: unknown, key: "sector" | "area"): string | null {
+  if (raw && typeof raw === "object" && key in raw) {
+    const value = (raw as Record<string, unknown>)[key];
+    if (typeof value === "string" && value.trim()) return value.trim();
+  }
+  return null;
+}
+
 export default async function SubmissionsPage() {
   const submissions = await getSubmissions("pending");
 
@@ -43,6 +55,8 @@ export default async function SubmissionsPage() {
                   </p>
                   <p className={`text-xs ${mutedText}`}>
                     {s.cityId}
+                    {rawField(s.raw, "area") ? ` · ${rawField(s.raw, "area")}` : ""}
+                    {rawField(s.raw, "sector") ? ` · ${rawField(s.raw, "sector")}` : ""}
                     {s.stage ? ` · ${s.stage}` : ""}
                     {s.hiring ? " · hiring" : ""}
                   </p>

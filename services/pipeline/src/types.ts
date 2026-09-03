@@ -75,4 +75,10 @@ export type JobItem = {
   applyUrl: string;
   sourceUrl: string;
   postedAt: string | null;
+  // HTML/plain body text, only when the ATS's own listing call already
+  // includes it for free (Greenhouse, Lever, Ashby, Recruitee, Keka,
+  // Workable all do) — never a reason to add an extra per-job fetch just
+  // for this. Used solely to extract a labelled walk-in venue/date
+  // (lib/walkin.ts); not stored or shown otherwise.
+  description?: string | null;
 };
