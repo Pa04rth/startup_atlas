@@ -1,0 +1,45 @@
+/* Design tokens + keyframes for the homepage's diptych hero (Claude Design
+   canvas option 1c) — scoped under .classical-theme so none of this leaks
+   into the rest of the app, which runs on Tailwind + its own emerald/orange
+   palette. Values copied from the design system's styles.css. */
+.classical-theme {
+  --color-bg: #f3f2f2;
+  --color-text: #201f1d;
+  --color-divider: color-mix(in srgb, #201f1d 16%, transparent);
+
+  --color-neutral-600: #7d7979;
+  --color-neutral-700: #605d5d;
+
+  --color-accent-100: #fff3e4;
+  --color-accent-200: #ffe3bf;
+  --color-accent-400: #e1ad66;
+  --color-accent-500: #c28d41;
+  --color-accent-700: #7d5411;
+
+  color: var(--color-text);
+  background: var(--color-bg);
+}
+
+@keyframes classical-ink {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes classical-wash {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Applied to each <use> instance — draws the outline in on mount, and is
+   replayed (cancel + play, see DiptychHero's onMouseEnter) on every hover. */
+.classical-theme .ink-draw {
+  animation: classical-ink 1.7s ease-out 0.25s both;
+}
