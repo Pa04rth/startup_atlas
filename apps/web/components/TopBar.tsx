@@ -48,7 +48,9 @@ export function TopBar({
     <div className="flex flex-col gap-2 rounded-2xl border border-neutral-200 bg-white p-2.5 shadow-lg lg:flex-row lg:flex-wrap lg:items-center lg:rounded-full lg:px-3 lg:py-2">
       <div className="flex items-center gap-2">
         <span className="flex shrink-0 items-center gap-1.5 whitespace-nowrap px-1 text-sm font-semibold text-neutral-900">
-          📍 {city.name} Startup Map
+          {/* eslint-disable-next-line @next/next/no-img-element -- favicon.ico isn't a next/image-optimizable format */}
+          <img src="/favicon.ico" alt="" className="h-4 w-4" />
+          {city.name} Startup Map
         </span>
         <input
           type="text"
