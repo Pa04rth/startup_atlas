@@ -66,8 +66,7 @@ export default function ComingSoonPage() {
             </span>
             <a
               href="/"
-              className="inline-flex items-center gap-2 rounded-sm py-2.5 pl-3.5 pr-4 text-[12px] tracking-[0.02em] text-[var(--color-neutral-100)] no-underline transition-[background-color,gap] duration-[250ms] hover:gap-3 md:gap-2.5 md:py-[9px] md:pl-4 md:pr-[18px] md:hover:gap-3.5"
-              style={{ background: "var(--color-neutral-900)" }}
+              className="inline-flex items-center gap-2 rounded-sm bg-[var(--color-neutral-900)] py-2.5 pl-3.5 pr-4 text-[12px] tracking-[0.02em] text-[var(--color-neutral-100)] no-underline transition-[background-color,gap] duration-[250ms] hover:gap-3 hover:bg-[var(--color-text)] md:gap-2.5 md:py-[9px] md:pl-4 md:pr-[18px] md:hover:gap-3.5"
             >
               <span className="text-[15px] leading-none">←</span>
               <span>Back</span>

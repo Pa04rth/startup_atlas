@@ -97,8 +97,7 @@ function ChooseCityCard() {
           </span>
           <a
             href="/coming-soon"
-            className="pointer-events-auto inline-flex items-center gap-2 rounded-sm py-2.5 pl-4 pr-3.5 text-[12px] tracking-[0.02em] text-[var(--color-neutral-100)] no-underline transition-[background-color,gap] duration-[250ms] hover:gap-3 md:gap-[9px] md:py-[9px] md:pl-[17px] md:pr-[15px] md:hover:gap-[13px] lg:gap-2.5 lg:pl-[18px] lg:pr-4 lg:hover:gap-3.5"
-            style={{ background: "var(--color-neutral-900)" }}
+            className="pointer-events-auto inline-flex items-center gap-2 rounded-sm bg-[var(--color-neutral-900)] py-2.5 pl-4 pr-3.5 text-[12px] tracking-[0.02em] text-[var(--color-neutral-100)] no-underline transition-[background-color,gap] duration-[250ms] hover:gap-3 hover:bg-[var(--color-text)] md:gap-[9px] md:py-[9px] md:pl-[17px] md:pr-[15px] md:hover:gap-[13px] lg:gap-2.5 lg:pl-[18px] lg:pr-4 lg:hover:gap-3.5"
           >
             <span>Next</span>
             <span className="text-[15px] leading-none">→</span>

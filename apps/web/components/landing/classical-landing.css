@@ -7,8 +7,10 @@
   --color-text: #201f1d;
   --color-divider: color-mix(in srgb, #201f1d 16%, transparent);
 
+  --color-neutral-100: #f8f4f4;
   --color-neutral-600: #7d7979;
   --color-neutral-700: #605d5d;
+  --color-neutral-900: #2d2b2b;
 
   --color-accent-100: #fff3e4;
   --color-accent-200: #ffe3bf;
