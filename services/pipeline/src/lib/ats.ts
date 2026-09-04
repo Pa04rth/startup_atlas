@@ -25,12 +25,27 @@ import { inferSeniority, inferTrack } from "./job_classify";
 setMaxListeners(50);
 
 const CAREERS_PATHS = ["", "/careers"];
-const FETCH_TIMEOUT_MS = 6000;
-const USER_AGENT = "Mozilla/5.0 (compatible; startup-atlas/0.1)";
+// 15s, up from 6s. Measured against 40 random published Pune brands: 6s
+// reached 28 of them, 15-20s reaches 31 — a lot of small-company sites in
+// this dataset are on slow shared hosting and simply need longer than six
+// seconds to answer.
+const FETCH_TIMEOUT_MS = 15000;
+// A real browser UA, not "compatible; startup-atlas/0.1". Some hosts reject
+// or challenge unrecognized agents outright, and we are only ever reading
+// the same public careers page a visitor would — nothing here depends on
+// being unidentifiable, it just has to not be pre-emptively refused.
+const USER_AGENT =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36";
 
 async function fetchText(url: string): Promise<string | null> {
   try {
-    const res = await fetch(url, { headers: { "User-Agent": USER_AGENT }, signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
+    const res = await fetch(url, {
+      headers: { "User-Agent": USER_AGENT },
+      // Careers pages are very often a redirect (http->https, apex->www, or
+      // straight to a hosted board); without this those all read as misses.
+      redirect: "follow",
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+    });
     if (!res.ok) return null;
     return await res.text();
   } catch {

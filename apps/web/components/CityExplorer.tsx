@@ -186,14 +186,16 @@ export function CityExplorer({
         )}
       </div>
 
-      <div className="fixed bottom-5 right-5 z-40 flex items-center gap-1.5 whitespace-nowrap rounded-full bg-neutral-900 px-3 py-2 text-xs font-medium text-white shadow-lg sm:px-4 sm:py-2.5 sm:text-sm">
-        🚀 {snapshot.brands.length} startup{snapshot.brands.length === 1 ? "" : "s"}
-        {/* Dropped on mobile — with the developer-credit badge sharing this
-            row from the opposite corner, the full sentence doesn't fit
-            beside it under ~400px wide. */}
-        <span className="hidden sm:inline">
-          {" "}
-          active in {snapshot.city.name}
+      {/* Short enough now that it fits beside the dev-credit badge in the
+          opposite corner even on a small phone, so unlike the old wording
+          ("… active in {city}") nothing has to be dropped at any width. */}
+      <div className="fixed bottom-5 right-5 z-40 flex items-center gap-2 whitespace-nowrap rounded-full border border-neutral-200 bg-white/95 px-3.5 py-2 text-xs shadow-[0_1px_2px_rgba(0,0,0,0.04),0_8px_24px_-12px_rgba(0,0,0,0.14)] backdrop-blur-sm sm:px-4 sm:py-2.5 sm:text-[13px]">
+        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" aria-hidden="true" />
+        <span className="font-semibold tabular-nums text-neutral-900">
+          {snapshot.brands.length.toLocaleString("en-IN")}
+        </span>
+        <span className="text-neutral-500">
+          startup{snapshot.brands.length === 1 ? "" : "s"} active
         </span>
       </div>
 

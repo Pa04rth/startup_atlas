@@ -43,3 +43,16 @@ jobs:
           # Repo Settings → Secrets and variables → Actions → New repository
           # secret. Use the same Neon/Supabase pooler URL as the local .env.
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
+      # Aggregator APIs (Adzuna/Jooble) — covers the ~95% of companies that
+      # run no machine-readable ATS board, so the step above can never see
+      # them. Exits cleanly doing nothing if the key secrets aren't set, and
+      # runs even if the ATS step failed since the two are independent.
+      - name: Refresh aggregator jobs for ${{ matrix.city }}
+        if: always()
+        run: pnpm --filter services-pipeline run refresh-aggregator-jobs ${{ matrix.city }}
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          ADZUNA_APP_ID: ${{ secrets.ADZUNA_APP_ID }}
+          ADZUNA_APP_KEY: ${{ secrets.ADZUNA_APP_KEY }}
+          JOOBLE_API_KEY: ${{ secrets.JOOBLE_API_KEY }}
