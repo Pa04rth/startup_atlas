@@ -70,17 +70,25 @@ export function HiringBar({
   const seniorityCounts = new Map(jobFacets.seniorities.map((s) => [s.name, s.count]));
 
   return (
-    <div className="space-y-2.5 rounded-2xl border border-neutral-200 bg-white p-3 shadow-lg">
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="flex items-center gap-1.5 whitespace-nowrap px-1 text-sm font-semibold text-neutral-900">
-          💼 Hiring in {city.name}
-        </span>
-        <span className="whitespace-nowrap text-xs text-neutral-500">
-          {jobsCount} open role{jobsCount === 1 ? "" : "s"} · {matchCount} compan{matchCount === 1 ? "y" : "ies"}{" "}
-          hiring
-        </span>
+    // Two stacked pieces, not one boxy panel: the top row keeps TopBar's
+    // exact pill treatment (rounded-full at lg, rounded-2xl below) so
+    // switching into hiring mode reads as the same bar changing modes
+    // rather than a different widget appearing, and the Field/Level chips
+    // sit in their own card underneath — they need multiple rows, which a
+    // pill can't hold without turning into an oval blob.
+    <div className="flex flex-col items-stretch gap-2 lg:items-start">
+      <div className="flex flex-col gap-2 rounded-2xl border border-neutral-200 bg-white p-2.5 shadow-lg lg:w-fit lg:flex-row lg:flex-wrap lg:items-center lg:rounded-full lg:px-3 lg:py-2">
+        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+          <span className="flex items-center gap-1.5 whitespace-nowrap px-1 text-sm font-semibold text-neutral-900">
+            💼 Hiring in {city.name}
+          </span>
+          <span className="whitespace-nowrap text-xs text-neutral-500">
+            {jobsCount} open role{jobsCount === 1 ? "" : "s"} · {matchCount} compan{matchCount === 1 ? "y" : "ies"}{" "}
+            hiring
+          </span>
+        </div>
 
-        <div className="ml-auto flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <a
             href={`/${city.id}/jobs`}
             className="whitespace-nowrap rounded-full border border-orange-300 bg-orange-50 px-3 py-1.5 text-xs font-medium text-orange-600 transition hover:bg-orange-100"
@@ -114,20 +122,22 @@ export function HiringBar({
         </div>
       </div>
 
-      <ChipRow
-        label="Field"
-        options={JOB_TRACKS}
-        counts={trackCounts}
-        selected={filters.track}
-        onSelect={(track) => onFiltersChange({ ...filters, track })}
-      />
-      <ChipRow
-        label="Level"
-        options={JOB_SENIORITIES}
-        counts={seniorityCounts}
-        selected={filters.seniority}
-        onSelect={(seniority) => onFiltersChange({ ...filters, seniority })}
-      />
+      <div className="flex flex-col gap-2 rounded-2xl border border-neutral-200 bg-white px-3 py-2.5 shadow-lg lg:w-fit">
+        <ChipRow
+          label="Field"
+          options={JOB_TRACKS}
+          counts={trackCounts}
+          selected={filters.track}
+          onSelect={(track) => onFiltersChange({ ...filters, track })}
+        />
+        <ChipRow
+          label="Level"
+          options={JOB_SENIORITIES}
+          counts={seniorityCounts}
+          selected={filters.seniority}
+          onSelect={(seniority) => onFiltersChange({ ...filters, seniority })}
+        />
+      </div>
     </div>
   );
 }

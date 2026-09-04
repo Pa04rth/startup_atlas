@@ -12,13 +12,29 @@ export function isWalkinTitle(title: string): boolean {
   return WALKIN_RE.test(title);
 }
 
+// Block-level tags become newlines *before* tags are stripped — otherwise
+// "<p>Venue: X</p><p>Date: Y</p>" collapses onto one line and the venue
+// match below happily runs straight into the date text.
 function stripHtml(html: string): string {
   return html
+    .replace(/<\/(?:p|div|li|tr|h[1-6])>|<br\s*\/?>/gi, "\n")
     .replace(/<[^>]+>/g, " ")
     .replace(/&nbsp;/gi, " ")
     .replace(/&amp;/gi, "&")
-    .replace(/\s+/g, " ")
+    .replace(/[ \t]+/g, " ")
+    .replace(/\n\s*/g, "\n")
     .trim();
+}
+
+// A venue line that runs into the next labelled field ("... Pune 411045
+// Date: 15th Sept") is worse than no venue at all — cut at the first such
+// label even when the source had no line break to separate them.
+const NEXT_LABEL_RE =
+  /\b(?:date|time|timing|timings|venue|location|address|contact|eligibility|experience|salary|documents?|note)\s*[:\-]/i;
+
+function trimAtNextLabel(value: string): string {
+  const m = value.match(NEXT_LABEL_RE);
+  return (m?.index !== undefined ? value.slice(0, m.index) : value).trim().replace(/[,;|\-–]\s*$/, "");
 }
 
 // Only pulled for postings whose title already matched isWalkinTitle — and
@@ -35,14 +51,17 @@ const ONE_DAY_MS = 1000 * 60 * 60 * 24;
 function extractVenue(text: string): string | null {
   const m = text.match(VENUE_RE);
   if (!m) return null;
-  return m[1].trim().replace(/\s{2,}/g, " ") || null;
+  const venue = trimAtNextLabel(m[1].replace(/\s{2,}/g, " "));
+  // A couple of stray characters isn't an address — treat it as not found.
+  return venue.length >= 5 ? venue : null;
 }
 
 function extractWalkinDate(text: string): string | null {
   const m = text.match(DATE_RE);
   if (!m) return null;
-  // Ordinal suffixes ("15th September") aren't parseable by Date() as-is.
-  const cleaned = m[1].trim().replace(/(\d+)(st|nd|rd|th)\b/gi, "$1");
+  // Same run-on problem as the venue ("Date: 20 Sep 2026 Time: 10 AM"),
+  // plus ordinal suffixes ("15th September") that Date() can't parse.
+  const cleaned = trimAtNextLabel(m[1]).replace(/(\d+)(st|nd|rd|th)\b/gi, "$1");
   const parsed = new Date(cleaned);
   if (Number.isNaN(parsed.getTime())) return null;
   // Sanity bound: reject anything not plausibly an upcoming walk-in — a
