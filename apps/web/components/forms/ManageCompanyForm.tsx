@@ -2,6 +2,21 @@
 
 import { useState } from "react";
 
+// One row of the "Open roles" section below. Kept in React state (rather
+// than plain form inputs) because a role is a repeatable group with a
+// conditional walk-in sub-form, and the whole set ships as one JSON field
+// — see /api/submit's `roles`.
+type RoleDraft = {
+  title: string;
+  applyUrl: string;
+  isWalkin: boolean;
+  venue: string;
+  walkinAt: string;
+};
+
+const EMPTY_ROLE: RoleDraft = { title: "", applyUrl: "", isWalkin: false, venue: "", walkinAt: "" };
+const MAX_ROLES = 10;
+
 export function ManageCompanyForm({
   cityId,
   brandId,
@@ -21,6 +36,11 @@ export function ManageCompanyForm({
 }) {
   const [status, setStatus] = useState<"idle" | "submitting" | "done" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
+  const [roles, setRoles] = useState<RoleDraft[]>([]);
+
+  function updateRole(index: number, patch: Partial<RoleDraft>) {
+    setRoles((prev) => prev.map((role, i) => (i === index ? { ...role, ...patch } : role)));
+  }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -31,6 +51,22 @@ export function ManageCompanyForm({
     if (form.get("website_url")) {
       setStatus("done");
       return;
+    }
+
+    // Only roles with a title are worth sending; a walk-in keeps its venue
+    // and date, everything else drops them so a toggled-then-untoggled row
+    // can't smuggle a stale venue through.
+    const filledRoles = roles
+      .filter((role) => role.title.trim())
+      .map((role) => ({
+        title: role.title.trim(),
+        applyUrl: role.applyUrl.trim(),
+        isWalkin: role.isWalkin,
+        venue: role.isWalkin ? role.venue.trim() : "",
+        walkinAt: role.isWalkin ? role.walkinAt : "",
+      }));
+    if (filledRoles.length > 0) {
+      form.set("roles", JSON.stringify(filledRoles));
     }
 
     const res = await fetch("/api/submit", { method: "POST", body: form });
