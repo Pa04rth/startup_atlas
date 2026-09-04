@@ -1,40 +1,42 @@
-// Shared dark theme for the admin panel — the validated default palette
-// from the dataviz skill (references/palette.md), used as-is rather than
-// invented per-page. Dark-mode-only by design: the admin panel is an
-// internal tool, not the public site (which stays light), so there's no
-// light/dark toggle to support here — just one deliberate dark theme.
+// Shared theme for the admin panel — the same "classical" language the
+// public site runs on (Cormorant Garamond headings, Lora body, cream ground,
+// gold accent; see components/landing/classical-landing.css), so the admin
+// reads as the same product rather than a separate tool.
+//
+// Values are inlined as Tailwind arbitrary hex rather than pulled from the
+// public site's CSS custom properties on purpose: the admin deliberately
+// does NOT mount `.classical-theme`, because that stylesheet's component
+// layer restyles every bare input/select/textarea (width:100%, form
+// padding) which would break the admin's inline search boxes and
+// checkboxes. Same palette, kept independent.
 
-// Chart chrome & ink (skill's dark column)
+// Ground, surfaces, and ink.
 export const ink = {
-  surface: "#1a1a19", // card/chart surface
-  plane: "#0d0d0d", // page background
-  primary: "#ffffff",
-  secondary: "#c3c2b7",
-  muted: "#898781",
-  grid: "#2c2c2a",
-  axis: "#383835",
-  border: "rgba(255,255,255,0.10)",
+  surface: "#f8f4f4", // card/chart surface (neutral-100)
+  plane: "#f3f2f2", // page background (color-bg)
+  primary: "#201f1d", // color-text
+  secondary: "#605d5d", // neutral-700
+  muted: "#7d7979", // neutral-600
+  grid: "#e2dfdc",
+  axis: "#cbc7c3",
+  border: "rgba(32,31,29,0.16)", // color-divider
 } as const;
 
-// Categorical slots 1 & 2 (blue, orange) — the documented order's first
-// adjacent pair, already validated together (worst adjacent CVD ΔE 8.4
-// dark, normal-vision ΔE 19.3 dark).
+// Categorical chart slots, darkened from the dark-theme pair so they hold
+// contrast against a cream surface instead of glowing on it.
 export const series = {
-  a: "#3987e5", // blue — "found" / primary series
-  b: "#d95926", // orange — "upserted" / secondary series
+  a: "#2d6cb5", // blue — "found" / primary series
+  b: "#b8501f", // burnt orange — "upserted" / secondary series
 } as const;
 
 // Fixed status palette (never themed, never reused as a categorical
-// color) — all four clear 3:1 on the dark surface.
+// color). Retuned for a light ground: these are the *text* colors, each
+// carrying its own low-opacity fill and border below.
 export const status = {
-  good: "#0ca30c", // published, approved, released
-  info: "#3987e5", // probable, paid — categorical blue reused as a neutral
-  //                   "in progress, not alarming" tag (not one of the 4
-  //                   reserved alarm roles, so borrowing the categorical
-  //                   hue here is fine per the skill's own status-vs-
-  //                   categorical distinction rule).
-  warning: "#fab219", // review, pending, fulfilled (awaiting payout)
-  critical: "#d03b3b", // archived-as-rejected, refused, refunded
+  good: "#157a15", // published, approved, released
+  info: "#2d6cb5", // probable, paid — "in progress, not alarming"
+  warning: "#8a5d0a", // review, pending, fulfilled (awaiting payout)
+  critical: "#b3402c", // archived-as-rejected, refused, refunded
 } as const;
 
 export type StatusRole = keyof typeof status;
@@ -65,38 +67,42 @@ export function roleFor(statusValue: string): StatusRole {
   return STATUS_ROLE[statusValue] ?? "info";
 }
 
-// Tailwind arbitrary-value classes per role — badge background is the
-// status hex at low opacity, text is the full-strength hex, so it reads
-// as a soft pill rather than a solid alarm block.
+// Badge fill is the status hue at low opacity, text at full strength, so it
+// reads as a soft pill rather than a solid alarm block.
 export const statusBadgeClass: Record<StatusRole, string> = {
-  good: "bg-[#0ca30c]/15 text-[#3ddc3d] border border-[#0ca30c]/30",
-  info: "bg-[#3987e5]/15 text-[#6ba5ec] border border-[#3987e5]/30",
-  warning: "bg-[#fab219]/15 text-[#fcc34d] border border-[#fab219]/30",
-  critical: "bg-[#d03b3b]/15 text-[#e46b6b] border border-[#d03b3b]/30",
+  good: "bg-[#157a15]/10 text-[#157a15] border border-[#157a15]/25",
+  info: "bg-[#2d6cb5]/10 text-[#2d6cb5] border border-[#2d6cb5]/25",
+  warning: "bg-[#8a5d0a]/10 text-[#8a5d0a] border border-[#8a5d0a]/25",
+  critical: "bg-[#b3402c]/10 text-[#b3402c] border border-[#b3402c]/25",
 };
 
 export function StatusPill({ value }: { value: string }) {
   const role = roleFor(value);
   return (
-    <span className={`rounded-full px-2 py-0.5 text-xs font-semibold uppercase tracking-wide ${statusBadgeClass[role]}`}>
+    <span className={`rounded-sm px-2 py-0.5 text-[10.5px] font-semibold uppercase tracking-wide ${statusBadgeClass[role]}`}>
       {value}
     </span>
   );
 }
 
-// Shared surface/card classes so every admin page shares one visual
+// Shared surface/typography classes so every admin page shares one visual
 // language instead of drifting.
-export const cardClass = "rounded-xl border border-white/10 bg-[#1a1a19] p-5 shadow-sm";
-export const pageClass = "min-h-screen bg-[#0d0d0d] text-white";
-export const mutedText = "text-[#898781]";
-export const secondaryText = "text-[#c3c2b7]";
-export const tableHeadClass = "border-b border-white/10 text-[#898781]";
-export const tableRowClass = "border-b border-white/5 last:border-0 hover:bg-white/[0.03]";
+export const pageClass = "min-h-screen bg-[#f3f2f2] text-[#201f1d]";
+export const cardClass = "rounded-md border border-[#201f1d]/12 bg-[#f8f4f4] p-5";
+export const headingClass = "font-[family-name:var(--font-heading)]";
+export const primaryText = "text-[#201f1d]";
+export const secondaryText = "text-[#605d5d]";
+export const mutedText = "text-[#7d7979]";
+export const linkClass = "text-[#7d5411] hover:underline";
+
+export const tableHeadClass = "border-b border-[#201f1d]/12 text-[#7d7979]";
+export const tableRowClass = "border-b border-[#201f1d]/8 last:border-0 hover:bg-[#201f1d]/[0.03]";
+
 export const inputClass =
-  "rounded-lg border border-white/15 bg-white/5 px-3 py-1.5 text-sm text-white placeholder:text-[#898781] focus:border-[#3987e5] focus:outline-none focus:ring-2 focus:ring-[#3987e5]/30";
+  "rounded-sm border border-[#201f1d]/16 bg-[#f3f2f2] px-3 py-1.5 text-sm text-[#201f1d] placeholder:text-[#9b9797] focus:border-[#b68235] focus:outline-none focus:ring-2 focus:ring-[#b68235]/25";
 export const buttonPrimaryClass =
-  "rounded-lg bg-[#3987e5] px-3 py-1.5 text-sm font-medium text-white transition hover:bg-[#2a78d6] disabled:cursor-not-allowed disabled:opacity-50";
+  "rounded-sm bg-[#2d2b2b] px-3 py-1.5 text-sm font-medium text-[#f8f4f4] transition hover:bg-[#201f1d] disabled:cursor-not-allowed disabled:opacity-50";
 export const buttonDangerClass =
-  "rounded-lg bg-[#d03b3b] px-3 py-1.5 text-sm font-medium text-white transition hover:bg-[#b93333] disabled:opacity-50";
+  "rounded-sm bg-[#b3402c] px-3 py-1.5 text-sm font-medium text-white transition hover:bg-[#9c3626] disabled:opacity-50";
 export const buttonGhostClass =
-  "rounded-lg border border-white/15 px-3 py-1.5 text-sm text-[#c3c2b7] transition hover:bg-white/5 disabled:opacity-50";
+  "rounded-sm border border-[#201f1d]/16 px-3 py-1.5 text-sm text-[#605d5d] transition hover:border-[#201f1d]/30 hover:bg-[#201f1d]/[0.03] disabled:opacity-50";

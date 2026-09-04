@@ -13,12 +13,12 @@ export default async function BrandEditPage({ params }: { params: Promise<{ id: 
 
   return (
     <div>
-      <a href="/admin/brands" className={`text-sm ${mutedText} hover:text-white`}>
+      <a href="/admin/brands" className={`text-sm ${mutedText} hover:text-[#201f1d]`}>
         ← Back to brands
       </a>
 
       <div className="mt-2 flex items-center justify-between">
-        <h1 className="text-xl font-bold text-white">{brand.name}</h1>
+        <h1 className="text-2xl font-normal font-[family-name:var(--font-heading)]">{brand.name}</h1>
         <div className="flex items-center gap-2">
           <StatusPill value={brand.status} />
           <span className={`text-xs ${mutedText}`}>score {brand.score}</span>
@@ -82,8 +82,8 @@ export default async function BrandEditPage({ params }: { params: Promise<{ id: 
           <label className={labelClass}>Founded year</label>
           <input name="foundedYear" type="number" defaultValue={brand.foundedYear ?? ""} className={inputClass} />
         </div>
-        <label className="mt-6 flex items-center gap-2 text-sm text-[#c3c2b7]">
-          <input type="checkbox" name="hiring" defaultChecked={brand.hiring} className="h-4 w-4 accent-[#3987e5]" />
+        <label className="mt-6 flex items-center gap-2 text-sm text-[#605d5d]">
+          <input type="checkbox" name="hiring" defaultChecked={brand.hiring} className="h-4 w-4 accent-[#b68235]" />
           Currently hiring
         </label>
 

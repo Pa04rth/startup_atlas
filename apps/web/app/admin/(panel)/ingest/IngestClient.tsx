@@ -42,7 +42,7 @@ export default function IngestClient() {
         ))}
       </div>
       {message && (
-        <p className={`mt-3 text-sm ${message.kind === "ok" ? "text-[#3ddc3d]" : "text-[#e46b6b]"}`}>
+        <p className={`mt-3 text-sm ${message.kind === "ok" ? "text-[#157a15]" : "text-[#b3402c]"}`}>
           {message.text}
         </p>
       )}

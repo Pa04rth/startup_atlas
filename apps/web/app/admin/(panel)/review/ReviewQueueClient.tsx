@@ -50,7 +50,7 @@ export default function ReviewQueueClient({ brands }: { brands: AdminBrandRow[] 
             checked={allSelected}
             onChange={toggleAll}
             disabled={brands.length === 0}
-            className="h-4 w-4 accent-[#3987e5]"
+            className="h-4 w-4 accent-[#b68235]"
           />
           Select all ({brands.length})
         </label>
@@ -83,10 +83,10 @@ export default function ReviewQueueClient({ brands }: { brands: AdminBrandRow[] 
                 type="checkbox"
                 checked={selected.has(b.id)}
                 onChange={() => toggleOne(b.id)}
-                className="h-4 w-4 shrink-0 accent-[#3987e5]"
+                className="h-4 w-4 shrink-0 accent-[#b68235]"
               />
               <div className="min-w-0">
-                <p className="font-medium text-white">{b.name}</p>
+                <p className="font-medium text-[#201f1d]">{b.name}</p>
                 <p className={`text-xs ${mutedText}`}>
                   {b.cityId} · score {b.score} · {b.precision ?? "no location"}
                   {b.website ? ` · ${b.website}` : ""}

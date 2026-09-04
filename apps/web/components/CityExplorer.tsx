@@ -76,7 +76,14 @@ export function CityExplorer({
             of them. Flow layout means each one always starts exactly where
             the thing above it actually ends, at every width and in every
             state. */}
-        <div className="absolute inset-x-4 top-4 z-30 flex flex-col items-start gap-3">
+        {/* pointer-events-none is load-bearing, not cosmetic: this container
+            is full-map-width (inset-x-4) and as tall as everything stacked
+            inside it, and a transparent div still hit-tests as a solid box —
+            so it silently ate every click meant for the map underneath.
+            Symptom was "the map is frozen until you dismiss the ad card",
+            since dismissing it shrank this box. Each interactive child
+            re-enables pointer events for its own (visible) area below. */}
+        <div className="pointer-events-none absolute inset-x-4 top-4 z-30 flex flex-col items-start gap-3">
           {/* Full width below lg so the stacked mobile/tablet rows use the
               available screen width properly; fit-content at lg+ so the
               single-line pill shrink-wraps to its own content instead of
@@ -84,7 +91,7 @@ export function CityExplorer({
               opaque white background, was rendering as a big dead
               clickable-looking blank strip to the right of Submit that hid
               the map underneath it for no reason. */}
-          <div className="w-full lg:w-fit">
+          <div className="pointer-events-auto w-full lg:w-fit">
             {hiringMode ? (
               <HiringBar
                 city={snapshot.city}
@@ -114,14 +121,18 @@ export function CityExplorer({
             )}
           </div>
 
-          <NewsTab newsPanel={newsPanel} expanded={newsExpanded} onExpandedChange={setNewsExpanded} />
+          <div className="pointer-events-auto">
+            <NewsTab newsPanel={newsPanel} expanded={newsExpanded} onExpandedChange={setNewsExpanded} />
+          </div>
 
           {/* Hidden (not pushed down) while news is expanded — letting flex
               flow shove it further down the page every time news opened ran
               it into the map's zoom control above and the dev-credit badge
               below. It reappears in its normal spot once news is minimized. */}
           {view === "map" && leftAdSlot && !newsExpanded && (
-            <FloatingAdPanel side="left">{leftAdSlot}</FloatingAdPanel>
+            <div className="pointer-events-auto">
+              <FloatingAdPanel side="left">{leftAdSlot}</FloatingAdPanel>
+            </div>
           )}
         </div>
 

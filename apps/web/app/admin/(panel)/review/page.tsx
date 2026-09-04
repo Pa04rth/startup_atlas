@@ -7,7 +7,7 @@ export default async function ReviewQueuePage() {
 
   return (
     <div>
-      <h1 className="text-xl font-bold text-white">Review queue</h1>
+      <h1 className="text-2xl font-normal font-[family-name:var(--font-heading)]">Review queue</h1>
       <p className={`mt-1 text-sm ${mutedText}`}>{brands.length} brands waiting for a decision.</p>
       <ReviewQueueClient brands={brands} />
     </div>

@@ -54,10 +54,10 @@ export default function ReferralsAdminClient({
                 <img
                   src={o.proofUrl}
                   alt="Proof of employment"
-                  className="h-24 w-24 shrink-0 rounded-md border border-white/10 object-cover"
+                  className="h-24 w-24 shrink-0 rounded-md border border-[#201f1d]/12 object-cover"
                 />
                 <div className="min-w-0 flex-1">
-                  <p className="font-medium text-white">
+                  <p className="font-medium text-[#201f1d]">
                     {o.referrerName}
                     {o.referrerRole ? ` · ${o.referrerRole}` : ""}
                   </p>
@@ -66,7 +66,7 @@ export default function ReferralsAdminClient({
                     {o.referrerLinkedin ? (
                       <>
                         {" · "}
-                        <a href={o.referrerLinkedin} target="_blank" rel="noopener noreferrer" className="text-[#6ba5ec] underline">
+                        <a href={o.referrerLinkedin} target="_blank" rel="noopener noreferrer" className="text-[#7d5411] underline">
                           LinkedIn
                         </a>
                       </>
@@ -91,7 +91,7 @@ export default function ReferralsAdminClient({
                 </div>
               </div>
               {rejectingId === o.id && (
-                <div className="mt-3 flex gap-2 border-t border-white/10 pt-3">
+                <div className="mt-3 flex gap-2 border-t border-[#201f1d]/12 pt-3">
                   <input
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
@@ -118,7 +118,7 @@ export default function ReferralsAdminClient({
             <div key={r.id} className={cardClass}>
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
-                  <p className="font-medium text-white">
+                  <p className="font-medium text-[#201f1d]">
                     {r.candidateName} → {r.brandName} ({r.offerJobTitle})
                   </p>
                   <p className={`text-xs ${mutedText}`}>
@@ -131,7 +131,7 @@ export default function ReferralsAdminClient({
                     released.
                   </p>
                   {r.resumeUrl && (
-                    <a href={r.resumeUrl} target="_blank" rel="noopener noreferrer" className="mt-1 inline-block text-xs text-[#6ba5ec] underline">
+                    <a href={r.resumeUrl} target="_blank" rel="noopener noreferrer" className="mt-1 inline-block text-xs text-[#7d5411] underline">
                       Resume
                     </a>
                   )}

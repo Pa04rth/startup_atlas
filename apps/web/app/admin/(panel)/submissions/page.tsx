@@ -39,7 +39,7 @@ export default async function SubmissionsPage() {
 
   return (
     <div>
-      <h1 className="text-xl font-bold text-white">Submissions</h1>
+      <h1 className="text-2xl font-normal font-[family-name:var(--font-heading)]">Submissions</h1>
       <p className={`mt-1 text-sm ${mutedText}`}>{submissions.length} pending from the public /submit form.</p>
 
       <div className="mt-4 space-y-2">
@@ -52,11 +52,11 @@ export default async function SubmissionsPage() {
                   <img
                     src={logoPathFrom(s.raw)!}
                     alt=""
-                    className="h-10 w-10 shrink-0 rounded border border-white/10 bg-white object-contain"
+                    className="h-10 w-10 shrink-0 rounded border border-[#201f1d]/12 bg-white object-contain"
                   />
                 )}
                 <div className="min-w-0">
-                  <p className="font-medium text-white">
+                  <p className="font-medium text-[#201f1d]">
                     {s.name}{" "}
                     <span
                       className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold uppercase ${
@@ -76,12 +76,12 @@ export default async function SubmissionsPage() {
                   {s.tagline && <p className={`mt-1 text-sm ${secondaryText}`}>{s.tagline}</p>}
                   <div className={`mt-1 flex flex-wrap gap-3 text-xs ${mutedText}`}>
                     {s.website && (
-                      <a href={s.website} target="_blank" rel="noopener noreferrer" className="text-[#6ba5ec] hover:underline">
+                      <a href={s.website} target="_blank" rel="noopener noreferrer" className="text-[#7d5411] hover:underline">
                         website
                       </a>
                     )}
                     {s.jobsUrl && (
-                      <a href={s.jobsUrl} target="_blank" rel="noopener noreferrer" className="text-[#6ba5ec] hover:underline">
+                      <a href={s.jobsUrl} target="_blank" rel="noopener noreferrer" className="text-[#7d5411] hover:underline">
                         jobs page
                       </a>
                     )}
@@ -89,13 +89,13 @@ export default async function SubmissionsPage() {
                   </div>
 
                   {rolesFrom(s.raw).length > 0 && (
-                    <div className="mt-2 space-y-1 border-l-2 border-white/10 pl-3">
+                    <div className="mt-2 space-y-1 border-l-2 border-[#201f1d]/12 pl-3">
                       <p className={`text-[11px] font-semibold uppercase tracking-wide ${mutedText}`}>
                         {rolesFrom(s.raw).length} role{rolesFrom(s.raw).length === 1 ? "" : "s"} submitted
                       </p>
                       {rolesFrom(s.raw).map((role, i) => (
                         <div key={i} className={`text-xs ${secondaryText}`}>
-                          <span className="text-white">{role.title}</span>
+                          <span className="text-[#201f1d]">{role.title}</span>
                           {role.isWalkin && (
                             <span className={`ml-1.5 rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${statusBadgeClass.warning}`}>
                               Walk-in
@@ -112,7 +112,7 @@ export default async function SubmissionsPage() {
                               href={role.applyUrl}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="ml-1.5 text-[#6ba5ec] hover:underline"
+                              className="ml-1.5 text-[#7d5411] hover:underline"
                             >
                               apply link
                             </a>
@@ -144,7 +144,7 @@ export default async function SubmissionsPage() {
       <p className={`mt-6 text-xs ${mutedText}`}>
         "Approve" creates (or updates) the real brand row and uploads any attached logo to R2 — a new
         submission still lands in the tier its score earns (check{" "}
-        <a href="/admin/review" className="underline hover:text-white">
+        <a href="/admin/review" className="underline hover:text-[#201f1d]">
           the review queue
         </a>{" "}
         if it doesn't show up on the public map right away).

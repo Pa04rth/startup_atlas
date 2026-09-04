@@ -36,7 +36,7 @@ export default async function AdsQueuePage({
 
   return (
     <div>
-      <h1 className="text-xl font-bold text-white">Ads</h1>
+      <h1 className="text-2xl font-normal font-[family-name:var(--font-heading)]">Ads</h1>
       <p className={`mt-1 text-sm ${mutedText}`}>
         Bookings from the advertise form. Approving publishes the placement immediately — confirm the payment
         in your own UPI app first, or use the Payments screen when the advertiser has uploaded a receipt.
@@ -48,7 +48,7 @@ export default async function AdsQueuePage({
             key={tab.status}
             href={`/admin/ads?status=${tab.status}`}
             className={`rounded-full px-3 py-1 text-xs font-medium ${
-              tab.status === active ? "bg-white text-black" : `border border-white/15 ${secondaryText}`
+              tab.status === active ? "bg-[#2d2b2b] text-[#f8f4f4]" : `border border-[#201f1d]/16 ${secondaryText}`
             }`}
           >
             {tab.label} ({counts[tab.status] ?? 0})
@@ -61,7 +61,7 @@ export default async function AdsQueuePage({
           <div key={b.id} className={cardClass}>
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0">
-                <p className="font-medium text-white">
+                <p className="font-medium text-[#201f1d]">
                   {KIND_LABELS[b.kind] ?? b.kind} · ₹{b.amountInr.toLocaleString("en-IN")}
                   {b.hasVerification && (
                     <span className={`ml-2 rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${statusBadgeClass.good}`}>

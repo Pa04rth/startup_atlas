@@ -14,7 +14,7 @@ export default async function PaymentsQueuePage() {
 
   return (
     <div>
-      <h1 className="text-xl font-bold text-white">Payments</h1>
+      <h1 className="text-2xl font-normal font-[family-name:var(--font-heading)]">Payments</h1>
       <p className={`mt-1 text-sm ${mutedText}`}>
         {verifications.length} pending — cross-check the transaction id against your own UPI app before
         approving. Approving here also flips the underlying booking to live.
@@ -25,7 +25,7 @@ export default async function PaymentsQueuePage() {
           <div key={v.id} className={cardClass}>
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0">
-                <p className="font-medium text-white">
+                <p className="font-medium text-[#201f1d]">
                   {KIND_LABELS[v.kind] ?? v.kind} · ₹{v.amountInr.toLocaleString("en-IN")}
                 </p>
                 <p className={`text-xs ${mutedText}`}>

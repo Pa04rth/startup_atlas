@@ -10,7 +10,7 @@ export default async function ReferralsAdminPage() {
 
   return (
     <div>
-      <h1 className="text-xl font-bold text-white">Referrals</h1>
+      <h1 className="text-2xl font-normal font-[family-name:var(--font-heading)]">Referrals</h1>
       <p className={`mt-1 text-sm ${mutedText}`}>
         Verify referrer proof before an offer goes public, then track paid requests through delivery and payout.
       </p>

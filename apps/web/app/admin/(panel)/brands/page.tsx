@@ -33,7 +33,7 @@ export default async function BrandsPage({
 
   return (
     <div>
-      <h1 className="text-xl font-bold text-white">Brands</h1>
+      <h1 className="text-2xl font-normal font-[family-name:var(--font-heading)]">Brands</h1>
       <p className={`mt-1 text-sm ${mutedText}`}>{total} total, across every status — this is the bulk fix-up view.</p>
 
       <form className="mt-4 flex flex-wrap gap-2" method="get">
@@ -75,7 +75,7 @@ export default async function BrandsPage({
             {rows.map((b) => (
               <tr key={b.id} className={tableRowClass}>
                 <td className="px-3 py-2">
-                  <a href={`/admin/brands/${b.id}`} className="font-medium text-white hover:underline">
+                  <a href={`/admin/brands/${b.id}`} className="font-medium text-[#201f1d] hover:underline">
                     {b.name}
                   </a>
                 </td>
