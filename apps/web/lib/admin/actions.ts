@@ -21,6 +21,7 @@ import {
   getBrandForAdmin,
   updateBrandFacts,
   getBrandsLogoInfo,
+  setAdBookingStatus,
 } from "@startup-atlas/db";
 import { scoreRecord, tierFromScore, type LocPrecision } from "@startup-atlas/core";
 import { uploadBufferToR2, extensionForContentType, fetchAndCacheLogoForDomain } from "@/lib/r2";
@@ -145,6 +146,34 @@ export async function rejectPayment(id: number, notes: string) {
   await requireAdmin();
   await rejectVerification(id, notes);
   revalidatePath("/admin/payments");
+}
+
+// The ads queue (/admin/ads). Approving here publishes the placement
+// immediately — it does NOT record a payment, and it deliberately doesn't
+// check whether one exists, since the whole point of this screen is the
+// manual-UPI path (CLAUDE.md §9: "Manual UPI first, then self-serve
+// Razorpay checkout") where money is confirmed outside the product. The
+// payments screen remains the other, evidence-backed route to 'live'.
+export async function approveAdBooking(id: number) {
+  await requireAdmin();
+  await setAdBookingStatus(id, "live");
+  revalidatePath("/admin/ads");
+  // Live ads are read per-city by the public map/sponsor bar, so those
+  // pages have to drop their cached copy too.
+  revalidatePath("/[city]", "page");
+}
+
+export async function rejectAdBooking(id: number) {
+  await requireAdmin();
+  await setAdBookingStatus(id, "rejected");
+  revalidatePath("/admin/ads");
+}
+
+export async function expireAdBooking(id: number) {
+  await requireAdmin();
+  await setAdBookingStatus(id, "expired");
+  revalidatePath("/admin/ads");
+  revalidatePath("/[city]", "page");
 }
 
 // apps/admin/brands/[id] — corrects the facts the pipeline scraped wrong
