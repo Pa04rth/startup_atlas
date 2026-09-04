@@ -66,7 +66,7 @@ export default async function CompanyPage({
       <FormPageHeader
         right={
           <a href={manageHref} className="cf-secondary">
-            Manage company
+            Manage Company Page
           </a>
         }
       />
@@ -101,7 +101,7 @@ export default async function CompanyPage({
                     {brand.name}
                   </h1>
                   <a href={manageHref} className="cf-secondary mt-3 hidden sm:mt-0 sm:inline-flex">
-                    Manage company
+                    Manage Company Page
                   </a>
                 </div>
                 {brand.tagline && (
@@ -124,7 +124,7 @@ export default async function CompanyPage({
                   <VerifiedBadge lastVerifiedAt={brand.lastVerifiedAt} />
                 </div>
                 <a href={manageHref} className="cf-secondary mt-3.5 block text-center sm:hidden">
-                  Manage company
+                  Manage Company Page
                 </a>
               </div>
             </div>

@@ -151,6 +151,102 @@ export function ManageCompanyForm({
         </div>
 
         <div className="flex flex-col gap-4 border-t pt-5" style={{ borderColor: "var(--color-divider)" }}>
+          <div>
+            <div className="sec-lbl">Open roles</div>
+            <p className="mt-1.5 text-[11.5px]" style={{ color: "var(--color-neutral-500)" }}>
+              Add individual openings, including walk-in interview drives. Optional — we also pick roles up
+              automatically from supported job boards.
+            </p>
+          </div>
+
+          {roles.map((role, index) => (
+            <div
+              key={index}
+              className="flex flex-col gap-3 rounded-sm border px-3.5 py-3.5"
+              style={{ borderColor: "var(--color-divider)", background: "var(--color-neutral-100)" }}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <span className="text-[11.5px] font-medium" style={{ color: "var(--color-neutral-600)" }}>
+                  Role {index + 1}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setRoles((prev) => prev.filter((_, i) => i !== index))}
+                  className="text-[11.5px] underline"
+                  style={{ color: "var(--color-neutral-600)" }}
+                >
+                  Remove
+                </button>
+              </div>
+
+              <div>
+                <label className="fl">Role title</label>
+                <input
+                  value={role.title}
+                  onChange={(e) => updateRole(index, { title: e.target.value })}
+                  placeholder="e.g. Backend Engineer"
+                />
+              </div>
+
+              <div>
+                <label className="fl">Apply link</label>
+                <input
+                  type="url"
+                  value={role.applyUrl}
+                  onChange={(e) => updateRole(index, { applyUrl: e.target.value })}
+                  placeholder="https://"
+                />
+              </div>
+
+              <label
+                className="flex cursor-pointer items-center gap-2.5 text-[13.5px]"
+                style={{ color: "var(--color-neutral-800)" }}
+              >
+                <input
+                  type="checkbox"
+                  checked={role.isWalkin}
+                  onChange={(e) => updateRole(index, { isWalkin: e.target.checked })}
+                  className="!w-auto accent-[var(--color-accent-500)]"
+                />
+                This is a walk-in interview
+              </label>
+
+              {role.isWalkin && (
+                <div className="flex flex-col gap-3">
+                  <div>
+                    <label className="fl">Venue</label>
+                    <input
+                      value={role.venue}
+                      onChange={(e) => updateRole(index, { venue: e.target.value })}
+                      placeholder="Office address candidates should come to"
+                    />
+                  </div>
+                  <div>
+                    <label className="fl">Walk-in date &amp; time</label>
+                    <input
+                      type="datetime-local"
+                      value={role.walkinAt}
+                      onChange={(e) => updateRole(index, { walkinAt: e.target.value })}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+
+          {roles.length < MAX_ROLES && (
+            <button
+              type="button"
+              onClick={() => setRoles((prev) => [...prev, { ...EMPTY_ROLE }])}
+              className="self-start rounded-sm border px-3.5 py-2 text-[13px]"
+              style={{ borderColor: "var(--color-divider)", color: "var(--color-neutral-800)" }}
+            >
+              + Add {roles.length === 0 ? "a role" : "another role"}
+            </button>
+          )}
+        </div>
+
+        <div className="flex flex-col gap-4 border-t pt-5" style={{ borderColor: "var(--color-divider)" }}>
           <div className="sec-lbl">Your contact</div>
           <div>
             <label className="fl">Email (for follow-up, not published)</label>

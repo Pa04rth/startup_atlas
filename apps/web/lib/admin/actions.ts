@@ -13,6 +13,7 @@ import {
   getSubmissionById,
   convertSubmissionToBrand,
   applyEditSubmission,
+  insertSubmittedRoles,
   setBrandLogoUrl,
   setReferralOfferStatus,
   setReferralRequestStatus,
@@ -101,6 +102,10 @@ export async function approveSubmission(id: number) {
       lng: city.centerLng,
     });
     brandId = created.brandId;
+    // Only ManageCompanyForm collects roles today (that's the "edit" path,
+    // handled inside applyEditSubmission), but a new-company submission
+    // carrying them shouldn't silently drop them if that ever changes.
+    await insertSubmittedRoles(brandId, submission.cityId, submission.raw);
   }
 
   const raw = submission.raw as { logoBase64?: string; logoContentType?: string } | null;

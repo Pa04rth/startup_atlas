@@ -503,6 +503,77 @@ export async function setBrandLogoUrl(brandId: string, logoUrl: string): Promise
 // (COALESCE-style: an edit request leaving a field blank never blanks out
 // what's already known), same non-destructive philosophy as the pipeline's
 // upsert step.
+// Roles a company added themselves through ManageCompanyForm, carried in
+// the submission's raw JSON. Written only on approval, and only with what
+// the submitter actually typed — a walk-in with no venue/date stays null
+// rather than being padded out, matching how the pipeline's own walk-in
+// extraction refuses to guess (services/pipeline/src/lib/walkin.ts).
+type SubmittedRole = {
+  title?: unknown;
+  applyUrl?: unknown;
+  isWalkin?: unknown;
+  venue?: unknown;
+  walkinAt?: unknown;
+};
+
+function rolesFrom(raw: unknown): SubmittedRole[] {
+  if (!raw || typeof raw !== "object" || !("roles" in raw)) return [];
+  const roles = (raw as { roles: unknown }).roles;
+  return Array.isArray(roles) ? (roles as SubmittedRole[]) : [];
+}
+
+function text(value: unknown): string | null {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+// A self-reported "date & time" arrives as datetime-local's
+// "YYYY-MM-DDTHH:mm" with no zone. Anything unparseable is dropped instead
+// of stored, so a bad string can't surface as a nonsense date on a card.
+function walkinTimestamp(value: unknown): string | null {
+  const raw = text(value);
+  if (!raw) return null;
+  const parsed = new Date(raw);
+  return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
+}
+
+export async function insertSubmittedRoles(
+  brandId: string,
+  cityId: string,
+  raw: unknown
+): Promise<{ inserted: number }> {
+  const roles = rolesFrom(raw);
+  if (roles.length === 0) return { inserted: 0 };
+
+  const pool = getPool();
+  let inserted = 0;
+  for (const role of roles) {
+    const title = text(role.title);
+    if (!title) continue;
+    const isWalkin = role.isWalkin === true;
+    await pool.query(
+      `insert into job_postings
+         (brand_id, city_id, title, apply_url, source_url, is_walkin, venue, walkin_at, posted_at, expires_at)
+       values ($1,$2,$3,$4,$5,$6,$7,$8, now(), now() + interval '30 days')
+       on conflict (apply_url) do update set
+         title = excluded.title, is_walkin = excluded.is_walkin,
+         venue = excluded.venue, walkin_at = excluded.walkin_at,
+         expires_at = excluded.expires_at`,
+      [
+        brandId,
+        cityId,
+        title,
+        text(role.applyUrl),
+        text(role.applyUrl),
+        isWalkin,
+        isWalkin ? text(role.venue) : null,
+        isWalkin ? walkinTimestamp(role.walkinAt) : null,
+      ]
+    );
+    inserted++;
+  }
+  return { inserted };
+}
+
 export async function applyEditSubmission(submission: SubmissionRow): Promise<void> {
   if (!submission.targetBrandId) return;
   const pool = getPool();
@@ -530,6 +601,7 @@ export async function applyEditSubmission(submission: SubmissionRow): Promise<vo
       [submission.targetBrandId, submission.jobsUrl]
     );
   }
+  await insertSubmittedRoles(submission.targetBrandId, submission.cityId, submission.raw);
 }
 
 export async function setSubmissionStatus(id: number, status: string): Promise<void> {

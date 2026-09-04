@@ -12,6 +12,20 @@ import { colorFor } from "@/lib/avatarColor";
 const PRECISE = new Set(["exact", "building", "street"]);
 const SOURCE_ID = "brands";
 
+// One easing curve for every camera move on this map — ease-in-out cubic,
+// which pulls away and settles gently instead of snapping the instant you
+// click. Durations below are deliberately unhurried: on a map the movement
+// itself is the feedback, and a fast cut leaves you re-finding where you
+// just were.
+//
+// None of these pass `essential: true` on purpose — MapLibre skips
+// animation entirely for visitors with prefers-reduced-motion set, and
+// these moves are navigational polish, not something they'd miss.
+const GENTLE_EASE = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+const CLUSTER_SPLIT_MS = 1400; // longest — the point is watching the group separate
+const PIN_FOCUS_MS = 900;
+const AREA_FOCUS_MS = 1000;
+
 // Registered once per page load, not per map instance — MapLibre's protocol
 // registry is global, and re-registering on every mount/unmount is harmless
 // but unnecessary.
@@ -153,7 +167,7 @@ function toFeatureCollection(
 // on-screen px — deliberately smaller than the 36px badge diameter (see the
 // "points" circle layer) so the logo always reads as sitting inside the
 // badge with visible padding, never poking past its edge.
-const LOGO_ICON_SIZE = 22;
+const LOGO_ICON_SIZE = 16;
 
 // Loads every unique brand logo in the background and returns a map of
 // logoUrl -> {iconId, scale}, scale computed per-image from its actual
@@ -171,6 +185,15 @@ const LOGO_ICON_SIZE = 22;
 // which needed a proxy route because MapLibre's WebGL texture loader
 // requires a CORS-compliant response (unlike a plain <img> tag). Self-
 // hosting the bytes makes that whole problem not exist.
+// Bounded concurrency, deliberately. A city now has 700-850 published
+// brands, and firing map.loadImage() for every one of them at once meant
+// ~800 simultaneous requests each followed by an addImage() that dirties
+// the style and schedules a repaint — enough main-thread work to lock the
+// map up for seconds ("clicking does nothing") right after load. Eight at a
+// time keeps it responsive; the total wall-clock cost is nearly identical
+// since the network, not the loop, is the limit.
+const LOGO_LOAD_CONCURRENCY = 8;
+
 async function loadLogos(
   map: maplibregl.Map,
   brands: BrandListItem[],
@@ -180,15 +203,33 @@ async function loadLogos(
     ...new Set(brands.map((b) => b.logoUrl).filter((u): u is string => !!u)),
   ];
 
-  await Promise.allSettled(
-    uniqueUrls.map(async (url, i) => {
+  let next = 0;
+  async function worker() {
+    while (next < uniqueUrls.length) {
+      const i = next++;
+      const url = uniqueUrls[i];
       const iconId = `logo-${i}`;
-      if (map.hasImage(iconId)) return; // shouldn't happen (fresh id per call), but harmless if it does
-      const { data } = await map.loadImage(url);
-      map.addImage(iconId, data);
-      const scale = LOGO_ICON_SIZE / Math.max(data.width, data.height);
-      icons.set(url, { iconId, scale });
-    }),
+      try {
+        // The map can be torn down (city change / unmount) while these are
+        // still in flight — touching a removed map throws, and an unhandled
+        // rejection here used to take the whole load pass down with it.
+        if (!map.getStyle() || map.hasImage(iconId)) continue;
+        const { data } = await map.loadImage(url);
+        if (!map.getStyle() || map.hasImage(iconId)) continue;
+        map.addImage(iconId, data);
+        icons.set(url, {
+          iconId,
+          scale: LOGO_ICON_SIZE / Math.max(data.width, data.height),
+        });
+      } catch {
+        // A single missing/blocked logo is a no-op — that pin just keeps
+        // its colored initial badge.
+      }
+    }
+  }
+
+  await Promise.all(
+    Array.from({ length: Math.min(LOGO_LOAD_CONCURRENCY, uniqueUrls.length) }, worker),
   );
 
   return icons;
@@ -253,37 +294,52 @@ export function MapView({
         type: "geojson",
         data: toFeatureCollection(brandsRef.current, iconsRef.current),
         cluster: true,
-        clusterRadius: 46,
+        // 40, down from 46 — the pins are smaller now, so they need less
+        // room before they stop overlapping, and a tighter radius means
+        // clusters break apart a zoom level or so earlier.
+        clusterRadius: 40,
+        // Explicit, rather than the default (source maxzoom - 1): past this
+        // zoom nothing is clustered at all, so "keep zooming and you will
+        // always end up at individual pins" is guaranteed instead of
+        // depending on how tightly a particular group happens to sit.
+        clusterMaxZoom: 15,
       });
 
-      // Two-tone bullseye, both tones pastel/light — a broad light outer
-      // ring behind a smaller inner circle just a shade darker, never a
-      // saturated/dark fill (green = small, amber = large). Deliberately
-      // not a same-color blurred halo (an earlier version), which read as
-      // a single flat blob rather than a distinct ring, and deliberately
-      // not a dark inner circle either (also tried — read as too heavy).
+      // Three-tier palette matched to the reference map: yellow-green for
+      // small groups, amber for mid-size, warm salmon for the big ones,
+      // each with a translucent halo of the same hue. Sizes are
+      // deliberately much smaller than the previous version, which at
+      // radius 22-36 (+14 of ring) covered enough of the map to obscure
+      // the city underneath.
+      const CLUSTER_RADIUS: maplibregl.ExpressionSpecification = [
+        "step",
+        ["get", "point_count"],
+        15,
+        10,
+        19,
+        100,
+        24,
+      ];
+      const CLUSTER_COLOR: maplibregl.ExpressionSpecification = [
+        "step",
+        ["get", "point_count"],
+        "#a3d165", // yellow-green — small
+        10,
+        "#edc253", // amber — mid
+        100,
+        "#ef8b6c", // salmon — large
+      ];
+
       map.addLayer({
         id: "cluster-glow",
         type: "circle",
         source: SOURCE_ID,
         filter: ["has", "point_count"],
         paint: {
-          // Vivid, not pale — a muted pastel version of these read as dull.
-          "circle-color": [
-            "step",
-            ["get", "point_count"],
-            "#7ee08a",
-            10,
-            "#ffc266",
-          ],
-          // +14 (was +8) for a visibly broader ring around the inner circle.
-          "circle-radius": [
-            "+",
-            ["step", ["get", "point_count"], 22, 10, 28, 30, 36],
-            14,
-          ],
-          "circle-blur": 0.3,
-          "circle-opacity": 0.9,
+          "circle-color": CLUSTER_COLOR,
+          "circle-radius": ["+", CLUSTER_RADIUS, 7],
+          "circle-blur": 0.25,
+          "circle-opacity": 0.4,
         },
       });
       map.addLayer({
@@ -292,16 +348,8 @@ export function MapView({
         source: SOURCE_ID,
         filter: ["has", "point_count"],
         paint: {
-          // One shade darker than the ring above, still bright/saturated —
-          // not a flat tiered "dark vs light" contrast, but not dull either.
-          "circle-color": [
-            "step",
-            ["get", "point_count"],
-            "#4cc264",
-            10,
-            "#ff9f40",
-          ],
-          "circle-radius": ["step", ["get", "point_count"], 22, 10, 28, 30, 36],
+          "circle-color": CLUSTER_COLOR,
+          "circle-radius": CLUSTER_RADIUS,
         },
       });
       map.addLayer({
@@ -311,11 +359,12 @@ export function MapView({
         filter: ["has", "point_count"],
         layout: {
           "text-field": "{point_count_abbreviated}",
-          "text-size": 14,
+          "text-size": 13,
           "text-font": ["Noto Sans Regular"],
         },
-        // Dark text reads better than white now that both rings are pastel.
-        paint: { "text-color": "#1f2a24" },
+        // Dark text — every tier above is a light/mid tone, so white would
+        // wash out on the yellow-green end.
+        paint: { "text-color": "#3d3016" },
       });
 
       // Neutral dark shadow underneath everything — pure contrast, no trust
@@ -329,27 +378,27 @@ export function MapView({
         source: SOURCE_ID,
         filter: ["!", ["has", "point_count"]],
         paint: {
-          "circle-radius": 26,
+          "circle-radius": 20,
           "circle-color": "#000000",
           "circle-blur": 1.2,
-          "circle-opacity": 0.22,
+          "circle-opacity": 0.18,
         },
       });
 
       // Soft colored glow behind each pin — green for a precise location,
-      // amber for an honestly-approximate one. This is the trust signal
-      // (replacing what used to be a hard dark stroke ring), plus it's what
-      // gives the badge the "floating card" look instead of a flat dot.
+      // amber for an honestly-approximate one. Now that the badge ring
+      // itself is white (see "points" below), this glow is the only place
+      // the precision signal still reads on the map, so it stays.
       map.addLayer({
         id: "point-glow",
         type: "circle",
         source: SOURCE_ID,
         filter: ["!", ["has", "point_count"]],
         paint: {
-          "circle-radius": 23,
+          "circle-radius": 17,
           "circle-color": ["case", ["get", "precise"], "#0c7a5e", "#d99a3e"],
           "circle-blur": 0.8,
-          "circle-opacity": ["case", ["get", "precise"], 0.75, 0.6],
+          "circle-opacity": ["case", ["get", "precise"], 0.7, 0.55],
         },
       });
 
@@ -364,7 +413,7 @@ export function MapView({
         source: SOURCE_ID,
         filter: ["!", ["has", "point_count"]],
         paint: {
-          "circle-radius": 18,
+          "circle-radius": 13,
           // White once a real logo has loaded (the icon needs a neutral
           // backing), otherwise the brand's own fallback color — same
           // per-name hashed palette as CompanyLogo.tsx, so a startup with no
@@ -376,13 +425,12 @@ export function MapView({
             "#ffffff",
             ["get", "avatarColor"],
           ],
-          "circle-stroke-width": 2,
-          "circle-stroke-color": [
-            "case",
-            ["get", "precise"],
-            "#0c7a5e",
-            "#d99a3e",
-          ],
+          // Plain white ring on every pin, matching the reference map.
+          // Precision is still signalled — by the colored glow behind this
+          // badge (see "point-glow"), and by the PrecisionBadge on the card
+          // and profile page.
+          "circle-stroke-width": 2.5,
+          "circle-stroke-color": "#ffffff",
         },
       });
 
@@ -418,7 +466,7 @@ export function MapView({
         filter: ["all", ["!", ["has", "point_count"]], ["!", ["has", "icon"]]],
         layout: {
           "text-field": ["get", "initial"],
-          "text-size": 15,
+          "text-size": 12,
           // "Noto Sans Bold" 404s on CARTO's glyph server (see style.ts) —
           // "Open Sans Bold" is a variant confirmed to actually resolve there.
           "text-font": ["Open Sans Bold"],
@@ -442,9 +490,9 @@ export function MapView({
           [">", ["get", "jobCount"], 0],
         ],
         paint: {
-          "circle-radius": 9,
+          "circle-radius": 7.5,
           "circle-color": "#e11d2e",
-          "circle-translate": [13, -13],
+          "circle-translate": [10, -10],
           "circle-stroke-width": 1.5,
           "circle-stroke-color": "#ffffff",
         },
@@ -460,16 +508,32 @@ export function MapView({
         ],
         layout: {
           "text-field": ["to-string", ["get", "jobCount"]],
-          "text-size": 11,
+          "text-size": 10,
           "text-font": ["Open Sans Bold"],
-          "text-offset": [1.15, -1.15],
+          "text-offset": [1.0, -1.0],
           "text-allow-overlap": true,
           "text-ignore-placement": true,
         },
         paint: { "text-color": "#ffffff" },
       });
 
-      const clickableLayers = ["points", "point-logos", "point-initials", "job-badge-bg", "job-badge-count"];
+      // Every layer that visually belongs to a pin has to be clickable,
+      // including the soft glow and shadow behind it. Those are drawn
+      // *wider* than the badge, so leaving them out left a ring of pixels
+      // that looked like part of the pin but silently swallowed clicks.
+      const clickableLayers = [
+        "point-shadow",
+        "point-glow",
+        "points",
+        "point-logos",
+        "point-initials",
+        "job-badge-bg",
+        "job-badge-count",
+      ];
+      // Same problem, worse, on clusters: "cluster-glow" is 7px wider than
+      // "clusters", so clicking the halo of a big cluster did nothing —
+      // which is exactly the "big nodes don't split" symptom.
+      const clusterLayers = ["clusters", "cluster-glow", "cluster-count"];
 
       // Click opens a small summary popup first (name, tagline, stage/sector,
       // location, job count) with a "View more" link to the full SSR profile
@@ -513,36 +577,64 @@ export function MapView({
           .setLngLat(coords)
           .setHTML(html)
           .addTo(map);
+
+        // Bring the pin you just clicked to the middle rather than leaving
+        // it wherever it happened to be — often near an edge, half under
+        // the floating bar or a side panel. Zoom is left alone: you asked
+        // to look at a company, not to change scale.
+        //
+        // The offset pushes it below the container's true centre, since the
+        // popup opens upward and the control bar occupies the top of the
+        // viewport — centring exactly would tuck the popup behind it.
+        map.easeTo({
+          center: coords,
+          offset: [0, 80],
+          duration: PIN_FOCUS_MS,
+          easing: GENTLE_EASE,
+        });
       });
 
-      map.on("click", "clusters", async (e) => {
+      map.on("click", clusterLayers, async (e) => {
         const feature = e.features?.[0];
         const clusterId = feature?.properties?.cluster_id as number | undefined;
         const source = map.getSource(SOURCE_ID) as maplibregl.GeoJSONSource;
         if (clusterId == null || !feature) return;
+        const coords = (feature.geometry as GeoJSON.Point).coordinates as [
+          number,
+          number,
+        ];
+
+        let targetZoom: number | null = null;
         try {
-          const zoom = await source.getClusterExpansionZoom(clusterId);
-          const coords = (feature.geometry as GeoJSON.Point).coordinates as [
-            number,
-            number,
-          ];
-          // A little extra zoom past the minimum "would split" level and an
-          // explicit ease-out curve — the point of clicking a cluster is
-          // seeing it visibly divide into individual pins, not just barely
-          // cross the threshold.
-          map.easeTo({
-            center: coords,
-            zoom: zoom + 0.5,
-            duration: 700,
-            easing: (t) => 1 - (1 - t) * (1 - t),
-          });
+          targetZoom = await source.getClusterExpansionZoom(clusterId);
         } catch {
-          // Cluster expansion is best-effort — a failed lookup just means
-          // the click does nothing, not a broken map.
+          // Best-effort — fall through to the manual step-in below.
         }
+
+        // getClusterExpansionZoom can come back at or below where we already
+        // are (it caps at the source's clusterMaxZoom), which made the click
+        // a no-op on the biggest clusters — the ones users most want to open.
+        // Stepping in by a fixed amount instead always makes *something*
+        // happen, so a click is never silently ignored.
+        const current = map.getZoom();
+        const zoom = Math.min(
+          targetZoom != null && targetZoom > current ? targetZoom + 0.5 : current + 2,
+          map.getMaxZoom(),
+        );
+
+        // A little extra zoom past the minimum "would split" level, run
+        // slowly — the point of clicking a cluster is watching it divide
+        // into individual pins, and at speed that read as a jump-cut to a
+        // different view rather than the same group coming apart.
+        map.easeTo({
+          center: coords,
+          zoom,
+          duration: CLUSTER_SPLIT_MS,
+          easing: GENTLE_EASE,
+        });
       });
 
-      for (const layer of clickableLayers) {
+      for (const layer of [...clickableLayers, ...clusterLayers]) {
         map.on("mouseenter", layer, () => {
           map.getCanvas().style.cursor = "pointer";
         });
@@ -593,7 +685,8 @@ export function MapView({
       map.easeTo({
         center: [city.centerLng, city.centerLat],
         zoom: city.defaultZoom,
-        duration: 800,
+        duration: AREA_FOCUS_MS,
+        easing: GENTLE_EASE,
       });
       return;
     }
@@ -608,7 +701,8 @@ export function MapView({
       map.easeTo({
         center: [points[0].lng, points[0].lat],
         zoom: 15,
-        duration: 800,
+        duration: AREA_FOCUS_MS,
+        easing: GENTLE_EASE,
       });
       return;
     }
@@ -620,7 +714,7 @@ export function MapView({
         [Math.min(...lngs), Math.min(...lats)],
         [Math.max(...lngs), Math.max(...lats)],
       ],
-      { padding: 80, duration: 800, maxZoom: 16 },
+      { padding: 80, duration: AREA_FOCUS_MS, easing: GENTLE_EASE, maxZoom: 16 },
     );
   }, [focusArea, city.centerLat, city.centerLng, city.defaultZoom]);
 

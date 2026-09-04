@@ -12,6 +12,40 @@
   left: 16px !important;
 }
 
+/* Company popup on the map (MapView.tsx). maplibre's default close button
+   is an unsized glyph pinned to right:0/top:0, so it renders tiny and gets
+   clipped by the popup's own rounded corner — it showed as a half-cut "x".
+   Give it a real hit area, inset it from the corner, and pad the content's
+   top-right so the company name never runs underneath it. Same !important
+   reasoning as the zoom control above: maplibre-gl.css can load after this
+   file and would otherwise win on load order. */
+.maplibregl-popup-content {
+  border-radius: 14px !important;
+  /* Keeps anything inside (the logo tile, hover states) from squaring off
+     the rounded corners. */
+  overflow: hidden !important;
+  padding: 14px 34px 14px 14px !important;
+  box-shadow: 0 6px 20px rgb(0 0 0 / 0.14) !important;
+}
+.maplibregl-popup-close-button {
+  width: 26px !important;
+  height: 26px !important;
+  top: 6px !important;
+  right: 6px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 6px !important;
+  font-size: 18px !important;
+  line-height: 1 !important;
+  color: rgb(107 114 128);
+  background: transparent !important;
+}
+.maplibregl-popup-close-button:hover {
+  background: rgb(243 244 246) !important;
+  color: rgb(17 24 39);
+}
+
 /* Thin, unobtrusive scrollbar for small internally-scrolling panels (the
    floating news card, the left news+ad rail) — the native scrollbar (wide,
    with up/down arrow buttons on Windows/Chrome) reads as a broken layout at

@@ -21,6 +21,19 @@ function rawField(raw: unknown, key: "sector" | "area"): string | null {
   return null;
 }
 
+// Self-reported openings from ManageCompanyForm's "Open roles" section.
+// These get written straight into job_postings on approval — including a
+// walk-in's venue and date, which nothing verifies — so they need to be
+// visible here before anyone clicks Approve.
+type SubmittedRole = { title?: string; applyUrl?: string; isWalkin?: boolean; venue?: string; walkinAt?: string };
+
+function rolesFrom(raw: unknown): SubmittedRole[] {
+  if (!raw || typeof raw !== "object" || !("roles" in raw)) return [];
+  const roles = (raw as { roles: unknown }).roles;
+  if (!Array.isArray(roles)) return [];
+  return roles.filter((r): r is SubmittedRole => !!r && typeof r === "object" && typeof r.title === "string");
+}
+
 export default async function SubmissionsPage() {
   const submissions = await getSubmissions("pending");
 
@@ -74,6 +87,40 @@ export default async function SubmissionsPage() {
                     )}
                     {s.email && <span>{s.email}</span>}
                   </div>
+
+                  {rolesFrom(s.raw).length > 0 && (
+                    <div className="mt-2 space-y-1 border-l-2 border-white/10 pl-3">
+                      <p className={`text-[11px] font-semibold uppercase tracking-wide ${mutedText}`}>
+                        {rolesFrom(s.raw).length} role{rolesFrom(s.raw).length === 1 ? "" : "s"} submitted
+                      </p>
+                      {rolesFrom(s.raw).map((role, i) => (
+                        <div key={i} className={`text-xs ${secondaryText}`}>
+                          <span className="text-white">{role.title}</span>
+                          {role.isWalkin && (
+                            <span className={`ml-1.5 rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${statusBadgeClass.warning}`}>
+                              Walk-in
+                            </span>
+                          )}
+                          {role.isWalkin && (role.venue || role.walkinAt) && (
+                            <span className={`ml-1.5 ${mutedText}`}>
+                              {role.venue}
+                              {role.walkinAt ? `${role.venue ? " · " : ""}${role.walkinAt}` : ""}
+                            </span>
+                          )}
+                          {role.applyUrl && (
+                            <a
+                              href={role.applyUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="ml-1.5 text-[#6ba5ec] hover:underline"
+                            >
+                              apply link
+                            </a>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
               <div className="flex shrink-0 gap-2">
