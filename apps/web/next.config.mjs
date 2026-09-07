@@ -19,6 +19,9 @@ const nextConfig = {
   // package.json "main"), so Next has to transpile them itself. Miss this
   // and every import from @startup-atlas/* fails at build/dev time.
   transpilePackages: ["@startup-atlas/core", "@startup-atlas/config", "@startup-atlas/db"],
+  // Redis uses Node TCP/TLS sockets and must run as its real server package.
+  // Bundling it into Next's server output can break the connection handshake.
+  serverExternalPackages: ["ioredis"],
 };
 
 export default nextConfig;

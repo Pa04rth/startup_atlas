@@ -13,7 +13,7 @@
     "@startup-atlas/config": "workspace:*",
     "@startup-atlas/core": "workspace:*",
     "@startup-atlas/db": "workspace:*",
-    "ioredis": "^6.0.0",
+    "ioredis": "^5.8.2",
     "maplibre-gl": "^4.7.0",
     "next": "^15.0.0",
     "pmtiles": "^3.2.0",

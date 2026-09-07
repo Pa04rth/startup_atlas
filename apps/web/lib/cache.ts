@@ -7,6 +7,7 @@ const KEY_PREFIX = "startup-atlas:v1";
 
 type RedisState = {
   client?: Redis;
+  connecting?: Promise<Redis | null>;
   disabled?: boolean;
 };
 
@@ -18,9 +19,8 @@ const globalState = globalThis as typeof globalThis & {
 const state = (globalState.startupAtlasRedis ??= {});
 const pendingLoads = (globalState.startupAtlasCacheLoads ??= new Map());
 
-function getRedis(): Redis | null {
+async function getRedis(): Promise<Redis | null> {
   if (state.disabled) return null;
-  if (state.client) return state.client;
 
   const url = process.env.REDIS_URL;
   if (!url) {
@@ -28,18 +28,56 @@ function getRedis(): Redis | null {
     return null;
   }
 
-  const client = new Redis(url, {
-    lazyConnect: true,
-    enableOfflineQueue: false,
-    maxRetriesPerRequest: 1,
-    connectTimeout: 1_500,
-  });
+  if (state.client?.status === "ready") return state.client;
+  if (state.connecting) return state.connecting;
 
-  client.on("error", (error) => {
-    console.error("[redis] connection error; bypassing cache for this request", error);
-  });
-  state.client = client;
-  return client;
+  state.connecting = (async () => {
+    let parsed: URL;
+    try {
+      parsed = new URL(url);
+    } catch {
+      console.error("[redis] REDIS_URL is not a valid URL; loading from database");
+      state.disabled = true;
+      return null;
+    }
+    const useTls =
+      parsed.protocol === "rediss:" || parsed.hostname.endsWith(".upstash.io");
+
+    const client =
+      state.client ??
+      new Redis({
+        host: parsed.hostname,
+        port: Number(parsed.port || 6379),
+        username: decodeURIComponent(parsed.username),
+        password: decodeURIComponent(parsed.password),
+        tls: useTls ? { servername: parsed.hostname } : undefined,
+        lazyConnect: true,
+        enableOfflineQueue: false,
+        maxRetriesPerRequest: 1,
+        connectTimeout: 1_500,
+        retryStrategy: () => null,
+      });
+
+    client.on("error", (error) => {
+      console.error("[redis] connection error; bypassing cache for this request", error);
+    });
+
+    try {
+      if (client.status === "wait") await client.connect();
+      if (client.status !== "ready") return null;
+      state.client = client;
+      return client;
+    } catch (error) {
+      console.error("[redis] connection failed; loading from database", error);
+      client.disconnect();
+      state.client = undefined;
+      return null;
+    } finally {
+      state.connecting = undefined;
+    }
+  })();
+
+  return state.connecting;
 }
 
 export function citySnapshotCacheKey(cityId: string): string {
@@ -55,7 +93,7 @@ export async function cachedJson<T>(
   load: () => Promise<T>,
   ttlSeconds = DEFAULT_TTL_SECONDS
 ): Promise<T> {
-  const redis = getRedis();
+  const redis = await getRedis();
 
   if (redis) {
     try {
@@ -88,7 +126,7 @@ export async function cachedJson<T>(
 
 export async function deleteCacheKeys(keys: string[]): Promise<void> {
   if (keys.length === 0) return;
-  const redis = getRedis();
+  const redis = await getRedis();
   if (!redis) return;
 
   try {

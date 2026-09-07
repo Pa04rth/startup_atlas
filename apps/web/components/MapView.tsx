@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { Protocol } from "pmtiles";
@@ -246,6 +246,7 @@ export function MapView({
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
+  const [mapUnavailable, setMapUnavailable] = useState(false);
   // Filters (via TopBar) change `brands` far more often than `city` changes —
   // the map itself is only rebuilt on city change; brand updates just patch
   // the existing GeoJSON source (see the second effect below), so panning
@@ -261,7 +262,7 @@ export function MapView({
   );
   useEffect(() => {
     if (!containerRef.current) return;
-    ensurePmtilesProtocol();
+    setMapUnavailable(false);
 
     // Self-hosted (CLAUDE.md §2 locked decision, §15's "long pole"). In
     // production NEXT_PUBLIC_MAPTILES_URL points at the R2 (or S3) object
@@ -273,12 +274,20 @@ export function MapView({
     const pmtilesUrl = process.env.NEXT_PUBLIC_MAPTILES_URL ?? "";
     // process.env.NEXT_PUBLIC_MAPTILES_URL || `${window.location.origin}/tiles/maharashtra.pmtiles`;
 
-    const map = new maplibregl.Map({
-      container: containerRef.current,
-      style: getStyle(pmtilesUrl),
-      center: [city.centerLng, city.centerLat],
-      zoom: city.defaultZoom,
-    });
+    let map: maplibregl.Map;
+    try {
+      ensurePmtilesProtocol();
+      map = new maplibregl.Map({
+        container: containerRef.current,
+        style: getStyle(pmtilesUrl),
+        center: [city.centerLng, city.centerLat],
+        zoom: city.defaultZoom,
+      });
+    } catch (error) {
+      console.error("[map] WebGL initialization failed", error);
+      setMapUnavailable(true);
+      return;
+    }
     mapRef.current = map;
     // bottom-left, not top-right — top-right sat directly under the
     // floating TopBar (CityExplorer.tsx) and was invisible underneath it.
@@ -718,5 +727,23 @@ export function MapView({
     );
   }, [focusArea, city.centerLat, city.centerLng, city.defaultZoom]);
 
-  return <div ref={containerRef} className="h-full w-full" />;
+  return (
+    <div ref={containerRef} className="h-full w-full">
+      {mapUnavailable ? (
+        <div
+          role="status"
+          className="flex h-full w-full items-center justify-center bg-[var(--color-neutral-50)] px-6 text-center"
+        >
+          <div className="max-w-sm rounded-2xl border border-[var(--color-divider)] bg-white/90 p-6 shadow-sm">
+            <p className="font-semibold text-[var(--color-neutral-900)]">
+              Map preview isn&apos;t available on this device
+            </p>
+            <p className="mt-2 text-sm text-[var(--color-neutral-600)]">
+              You can still use the filters and browse the city&apos;s company and job information.
+            </p>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
 }
