@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
-import { getOpenJobs } from "@startup-atlas/db";
 import { getCitySnapshot } from "@/lib/snapshot";
+import { getCachedOpenJobs } from "@/lib/public-data";
 import { CityExplorer } from "@/components/CityExplorer";
 import { SponsorBar } from "@/components/SponsorBar";
 import { AdSlotStack } from "@/components/AdSlotStack";
@@ -19,7 +19,7 @@ export default async function CityPage({ params }: { params: Promise<{ city: str
   const snapshot = await getCitySnapshot(city);
   if (!snapshot) notFound();
 
-  const jobs = await getOpenJobs(city);
+  const jobs = await getCachedOpenJobs(city);
 
   return (
     <CityExplorer

@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { cities } from "@startup-atlas/config";
-import { getOpenJobs } from "@startup-atlas/db";
+import { getCachedOpenJobs } from "@/lib/public-data";
 import { JobsListClient } from "./JobsListClient";
 
 export default async function JobsPage({ params }: { params: Promise<{ city: string }> }) {
@@ -8,7 +8,7 @@ export default async function JobsPage({ params }: { params: Promise<{ city: str
   const city = cities.find((c) => c.id === cityId);
   if (!city) notFound();
 
-  const jobs = await getOpenJobs(cityId);
+  const jobs = await getCachedOpenJobs(cityId);
 
   return <JobsListClient jobs={jobs} cityId={cityId} cityName={city.name} />;
 }

@@ -26,6 +26,7 @@ import {
 import { scoreRecord, tierFromScore, type LocPrecision } from "@startup-atlas/core";
 import { uploadBufferToR2, extensionForContentType, fetchAndCacheLogoForDomain } from "@/lib/r2";
 import { ADMIN_COOKIE_NAME, verifySessionCookieValue } from "./auth";
+import { cityJobsCacheKey, citySnapshotCacheKey, deleteCacheKeys } from "@/lib/cache";
 
 // Defense in depth: middleware.ts already gates every /admin/* request, but
 // a server action is technically its own endpoint — re-check here too so a
@@ -37,6 +38,15 @@ async function requireAdmin(): Promise<void> {
   if (!(await verifySessionCookieValue(session))) {
     throw new Error("Not authenticated");
   }
+}
+
+async function invalidatePublicCityCaches(): Promise<void> {
+  await deleteCacheKeys(
+    cities.flatMap((city) => [
+      citySnapshotCacheKey(city.id),
+      cityJobsCacheKey(city.id),
+    ])
+  );
 }
 
 // Every path that can publish a brand (this, approveBrands below, and
@@ -56,12 +66,14 @@ export async function approveBrand(id: string) {
   await setBrandStatus(id, "published");
   const brand = await getBrandForAdmin(id);
   if (brand) await ensureLogo(id, brand.domain, brand.logoUrl);
+  await invalidatePublicCityCaches();
   revalidatePath("/admin/review");
 }
 
 export async function archiveBrand(id: string) {
   await requireAdmin();
   await setBrandStatus(id, "archived");
+  await invalidatePublicCityCaches();
   revalidatePath("/admin/review");
 }
 
@@ -70,12 +82,14 @@ export async function approveBrands(ids: string[]) {
   await setBrandStatusBulk(ids, "published");
   const infos = await getBrandsLogoInfo(ids);
   await Promise.all(infos.map((b) => ensureLogo(b.id, b.domain, b.logoUrl)));
+  await invalidatePublicCityCaches();
   revalidatePath("/admin/review");
 }
 
 export async function archiveBrands(ids: string[]) {
   await requireAdmin();
   await setBrandStatusBulk(ids, "archived");
+  await invalidatePublicCityCaches();
   revalidatePath("/admin/review");
 }
 
@@ -126,6 +140,7 @@ export async function approveSubmission(id: number) {
   }
 
   await setSubmissionStatus(id, "approved");
+  await invalidatePublicCityCaches();
   revalidatePath("/admin/submissions");
   revalidatePath("/admin/review");
 }
@@ -223,6 +238,7 @@ export async function updateBrand(id: string, formData: FormData) {
   const status = tierFromScore(score);
 
   await updateBrandFacts(id, { ...fields, domain }, score, status);
+  await invalidatePublicCityCaches();
   revalidatePath("/admin/brands");
   revalidatePath(`/admin/brands/${id}`);
   revalidatePath("/admin/review");

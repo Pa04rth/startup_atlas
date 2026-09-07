@@ -6,6 +6,7 @@
 // this shape stays exactly the same either way.
 import { cities, type CityConfig } from "@startup-atlas/config";
 import { getPublishedBrands, getJobFacets, type BrandListItem, type JobFacets } from "@startup-atlas/db";
+import { cachedJson, citySnapshotCacheKey } from "./cache";
 
 export type CitySnapshot = {
   city: CityConfig;
@@ -23,9 +24,16 @@ export async function getCitySnapshot(cityId: string): Promise<CitySnapshot | nu
   const city = cities.find((c) => c.id === cityId);
   if (!city) return null;
 
+  return cachedJson(citySnapshotCacheKey(cityId), () => buildCitySnapshot(city));
+}
+
+async function buildCitySnapshot(city: CityConfig): Promise<CitySnapshot> {
   // Only published/probable brands ever reach a snapshot — see
   // packages/db/queries/brands.ts. review/archived rows never leave the DB.
-  const [brands, jobFacets] = await Promise.all([getPublishedBrands(cityId), getJobFacets(cityId)]);
+  const [brands, jobFacets] = await Promise.all([
+    getPublishedBrands(city.id),
+    getJobFacets(city.id),
+  ]);
 
   const areas = new Set<string>();
   const stages = new Set<string>();
