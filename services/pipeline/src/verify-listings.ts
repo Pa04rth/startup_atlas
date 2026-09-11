@@ -21,8 +21,17 @@ import { cities } from "@startup-atlas/config";
 
 const CONCURRENCY = 6;
 const FETCH_TIMEOUT_MS = 15000;
-const USER_AGENT =
-  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36";
+// A User-Agent alone isn't enough: pg.com and pratilipi.com both reset the
+// connection when only UA is sent, and both return 200 once the rest of a
+// normal browser's headers are present. Verified before relying on it —
+// without this, live company sites get misread as dead.
+const BROWSER_HEADERS: Record<string, string> = {
+  "User-Agent":
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36",
+  Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+  "Accept-Language": "en-US,en;q=0.9",
+  "Upgrade-Insecure-Requests": "1",
+};
 
 // Other Indian metros, so "this site talks about Bengaluru and never
 // mentions Pune" can be surfaced as a likely mis-filing rather than just
@@ -38,15 +47,20 @@ type Verdict =
   | "ok-city-not-mentioned"
   | "ok-other-city-only"
   | "dead-dns"
-  | "dead-refused"
   | "dead-404"
+  // Alive as far as anyone can tell, just not reachable from this machine.
+  | "unreachable-reset"
   | "blocked"
   | "timeout"
   | "invalid-url"
   | "error";
 
-// Only these are treated as "the website is genuinely gone".
-const DEAD: ReadonlySet<Verdict> = new Set(["dead-dns", "dead-refused", "dead-404"]);
+// Only these are treated as "the website is genuinely gone". A refused or
+// reset connection is deliberately NOT here: sanofi.com, nomuraholdings.com
+// and lexisnexis.com all reset on us regardless of headers, and they are
+// plainly not dead companies — that's a datacenter/WAF block, i.e. "we
+// can't tell from here", which is not grounds for archiving anyone.
+const DEAD: ReadonlySet<Verdict> = new Set(["dead-dns", "dead-404"]);
 
 type Row = { id: string; name: string; website: string };
 type Result = { row: Row; verdict: Verdict; detail: string | null };
@@ -62,7 +76,7 @@ async function check(row: Row, cityName: string): Promise<Result> {
   let res: Response;
   try {
     res = await fetch(origin, {
-      headers: { "User-Agent": USER_AGENT },
+      headers: BROWSER_HEADERS,
       redirect: "follow",
       signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
     });
@@ -70,8 +84,8 @@ async function check(row: Row, cityName: string): Promise<Result> {
     const text = `${(err as Error).message} ${String((err as { cause?: unknown }).cause ?? "")}`;
     if (/timed? ?out|TimeoutError/i.test(text)) return { row, verdict: "timeout", detail: null };
     if (/ENOTFOUND|getaddrinfo/i.test(text)) return { row, verdict: "dead-dns", detail: origin };
-    if (/ECONNREFUSED|ECONNRESET|EHOSTUNREACH/i.test(text)) {
-      return { row, verdict: "dead-refused", detail: origin };
+    if (/ECONNREFUSED|ECONNRESET|EHOSTUNREACH|EPROTO|certificate|SSL|TLS/i.test(text)) {
+      return { row, verdict: "unreachable-reset", detail: origin };
     }
     return { row, verdict: "error", detail: (err as Error).message.slice(0, 80) };
   }
