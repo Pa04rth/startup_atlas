@@ -705,7 +705,20 @@ export function MapView({
       (b): b is BrandListItem & { lat: number; lng: number } =>
         b.area === focusArea && b.lat != null && b.lng != null,
     );
-    if (points.length === 0) return;
+    if (points.length === 0) {
+      // No companies there yet — still take the viewer to the locality if
+      // the city config knows where it is (packages/config areas.ts).
+      const known = city.areas?.find((a) => a.name === focusArea);
+      if (known) {
+        map.easeTo({
+          center: [known.lng, known.lat],
+          zoom: 14,
+          duration: AREA_FOCUS_MS,
+          easing: GENTLE_EASE,
+        });
+      }
+      return;
+    }
 
     if (points.length === 1) {
       map.easeTo({
@@ -726,7 +739,7 @@ export function MapView({
       ],
       { padding: 80, duration: AREA_FOCUS_MS, easing: GENTLE_EASE, maxZoom: 16 },
     );
-  }, [focusArea, city.centerLat, city.centerLng, city.defaultZoom]);
+  }, [focusArea, city.centerLat, city.centerLng, city.defaultZoom, city.areas]);
 
   return (
     <div ref={containerRef} className="h-full w-full">

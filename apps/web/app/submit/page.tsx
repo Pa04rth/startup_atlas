@@ -1,5 +1,5 @@
 import { getAreasByCity } from "@startup-atlas/db";
-import { formatCityNames } from "@startup-atlas/config";
+import { cities, formatCityNames, mergeCityAreaNames } from "@startup-atlas/config";
 import { ClassicalShell } from "@/components/landing/ClassicalShell";
 import { MonumentSymbols } from "@/components/landing/MonumentSymbols";
 import { MonumentWatermark } from "@/components/landing/MonumentWatermark";
@@ -27,7 +27,10 @@ const FEATURES = [
 ];
 
 export default async function SubmitPage() {
-  const areasByCity = await getAreasByCity();
+  const dataAreasByCity = await getAreasByCity();
+  const areasByCity = Object.fromEntries(
+    cities.map((c) => [c.id, mergeCityAreaNames(c, dataAreasByCity[c.id] ?? [])])
+  );
 
   return (
     <ClassicalShell className="min-h-screen">

@@ -13,6 +13,14 @@ export function getPool(): Pool {
     // against the same Postgres and can exhaust the connection limit even
     // through the pooler. Fine as-is for the pipeline (long-lived process).
     pool = new Pool({ connectionString, max: 5 });
+    // Neon (and any pooler) closes idle connections. pg reports that as an
+    // 'error' event on the pool, and an EventEmitter 'error' with no
+    // listener crashes the whole process — which is how long pipeline runs
+    // (cache-logos, import-bsm) died mid-way. The dead client is already
+    // discarded by the pool; the next query simply opens a fresh one.
+    pool.on("error", (err) => {
+      console.warn(`[db] idle connection dropped: ${err.message}`);
+    });
   }
   return pool;
 }

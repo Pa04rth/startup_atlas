@@ -4,7 +4,7 @@
 // Typesense" once it outgrows client-side filtering (packages/config's
 // per-city `useBounds` flag decides when) — every UI component reading
 // this shape stays exactly the same either way.
-import { cities, type CityConfig } from "@startup-atlas/config";
+import { cities, mergeCityAreaNames, type CityConfig } from "@startup-atlas/config";
 import { getPublishedBrands, getJobFacets, type BrandListItem, type JobFacets } from "@startup-atlas/db";
 import { cachedJson, citySnapshotCacheKey } from "./cache";
 
@@ -51,7 +51,7 @@ async function buildCitySnapshot(city: CityConfig): Promise<CitySnapshot> {
     city,
     brands,
     facets: {
-      areas: [...areas].sort(),
+      areas: mergeCityAreaNames(city, areas),
       stages: [...stages].sort(),
       sectors: [...sectors].sort(),
       kinds: [...kinds].sort(),

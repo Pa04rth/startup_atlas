@@ -12,6 +12,7 @@
     "refresh-contacts": "tsx --env-file-if-exists=../../.env src/refresh-contacts.ts",
     "cache-logos": "tsx --env-file-if-exists=../../.env src/cache-logos.ts",
     "import-curated": "tsx --env-file-if-exists=../../.env src/import-curated.ts",
+    "import-bsm": "tsx --env-file-if-exists=../../.env src/import-bangalorestartupmap.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

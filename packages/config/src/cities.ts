@@ -1,3 +1,5 @@
+import { BENGALURU_AREAS, type CityArea } from "./areas";
+
 export type CityId = "pune" | "bengaluru" | "mumbai";
 
 export type CityConfig = {
@@ -17,6 +19,9 @@ export type CityConfig = {
   // flag imported coordinates that land outside the city, never to move them.
   bbox: [number, number, number, number];
   defaultZoom: number;
+  // Localities always offered in the area filter, on top of whatever areas
+  // the city's companies already use (see areas.ts).
+  areas?: CityArea[];
   // Which self-hosted .pmtiles file covers this city (infra/pmtiles/README.md).
   tileset: "maharashtra" | "bengaluru";
   useBounds: boolean; // hybrid switch: false = snapshot, true = bounds+Typesense
@@ -48,6 +53,7 @@ export const cities: CityConfig[] = [
     centerLng: 77.5946,
     bbox: [77.3, 12.7, 77.95, 13.3],
     defaultZoom: 12,
+    areas: BENGALURU_AREAS,
     tileset: "bengaluru",
     useBounds: false,
     discoverySources: ["wellfound-bengaluru", "inc42-bengaluru"],
@@ -80,6 +86,16 @@ export function matchCityId(raw: string | null | undefined): CityId | null {
   const s = raw.toLowerCase();
   const hit = cities.find((c) => [c.id, c.name, ...c.aliases].some((n) => s.includes(n.toLowerCase())));
   return hit?.id ?? null;
+}
+
+// The city's fixed localities merged with the area names its data already
+// uses. Case-insensitive, and the data's own spelling wins on a clash so a
+// filter value always matches the brands it should.
+export function mergeCityAreaNames(city: CityConfig, dataAreas: Iterable<string>): string[] {
+  const byKey = new Map<string, string>();
+  for (const a of city.areas ?? []) byKey.set(a.name.toLowerCase(), a.name);
+  for (const a of dataAreas) byKey.set(a.toLowerCase(), a);
+  return [...byKey.values()].sort((a, b) => a.localeCompare(b));
 }
 
 export function isInsideCityBbox(city: CityConfig, lat: number, lng: number): boolean {

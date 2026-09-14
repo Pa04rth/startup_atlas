@@ -1,16 +1,21 @@
 // Fetch-once-and-cache pass over every brand with a known domain — run
 // after any batch of new brands lands (the demo seed, or a real ingestion
 // run) to replace live favicon hotlinks with locally-cached files.
-//   pnpm --filter services-pipeline run cache-logos
+//   pnpm --filter services-pipeline run cache-logos            (every city)
+//   pnpm --filter services-pipeline run cache-logos bengaluru  (one city)
 import { getPool } from "@startup-atlas/db";
 import { fetchAndCacheLogo } from "./lib/logos";
 import { withRetry } from "./lib/retry";
 
+const cityId = process.argv[2] ?? null;
+
 async function main() {
   const pool = getPool();
   const { rows } = await pool.query<{ id: string; domain: string }>(
-    `select id, domain from brands where domain is not null`
+    `select id, domain from brands where domain is not null and ($1::text is null or city_id = $1)`,
+    [cityId]
   );
+  console.log(`[cache-logos] ${rows.length} brands with a domain${cityId ? ` in ${cityId}` : ""}`);
 
   const cache = new Map<string, string | null>(); // domain -> public path (or null = no logo found)
   let updated = 0;
