@@ -2,19 +2,19 @@
 
 import { useState, useTransition } from "react";
 import { triggerIngest } from "@/lib/admin/actions";
+import { cities, type CityId } from "@startup-atlas/config";
 import { buttonPrimaryClass } from "../_theme";
 
-const OPTIONS: Array<{ label: string; city: "" | "pune" | "mumbai" }> = [
-  { label: "Run Pune", city: "pune" },
-  { label: "Run Mumbai", city: "mumbai" },
-  { label: "Run both", city: "" },
+const OPTIONS: Array<{ label: string; city: "" | CityId }> = [
+  ...cities.map((c) => ({ label: `Run ${c.name}`, city: c.id })),
+  { label: "Run all", city: "" },
 ];
 
 export default function IngestClient() {
   const [isPending, startTransition] = useTransition();
   const [message, setMessage] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
 
-  function run(city: "" | "pune" | "mumbai") {
+  function run(city: "" | CityId) {
     setMessage(null);
     startTransition(async () => {
       try {
@@ -28,7 +28,7 @@ export default function IngestClient() {
 
   return (
     <div className="mt-4">
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         {OPTIONS.map((o) => (
           <button
             key={o.city}

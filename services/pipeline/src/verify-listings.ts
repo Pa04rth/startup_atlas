@@ -35,9 +35,10 @@ const BROWSER_HEADERS: Record<string, string> = {
 
 // Other Indian metros, so "this site talks about Bengaluru and never
 // mentions Pune" can be surfaced as a likely mis-filing rather than just
-// "city not found".
-const OTHER_CITIES = [
-  "Bengaluru", "Bangalore", "Hyderabad", "Chennai", "Delhi", "Gurugram", "Gurgaon",
+// "city not found". Our own live cities (and their aliases) are added per
+// run in main(), minus whichever one is being verified.
+const OTHER_METROS = [
+  "Hyderabad", "Chennai", "Delhi", "Gurugram", "Gurgaon",
   "Noida", "Kolkata", "Ahmedabad", "Jaipur", "Indore", "Nashik", "Nagpur", "Surat",
   "Kochi", "Coimbatore", "Bhubaneswar", "Chandigarh", "Vadodara", "Thiruvananthapuram",
 ];
@@ -65,7 +66,7 @@ const DEAD: ReadonlySet<Verdict> = new Set(["dead-dns", "dead-404"]);
 type Row = { id: string; name: string; website: string };
 type Result = { row: Row; verdict: Verdict; detail: string | null };
 
-async function check(row: Row, cityName: string): Promise<Result> {
+async function check(row: Row, cityNames: string[], otherCities: string[]): Promise<Result> {
   let origin: string;
   try {
     origin = new URL(row.website).origin;
@@ -102,10 +103,10 @@ async function check(row: Row, cityName: string): Promise<Result> {
   }
   const text = html.replace(/<[^>]+>/g, " ");
 
-  if (new RegExp(`\\b${cityName}\\b`, "i").test(text)) {
+  if (cityNames.some((name) => new RegExp(`\\b${name}\\b`, "i").test(text))) {
     return { row, verdict: "ok-city-confirmed", detail: null };
   }
-  const others = OTHER_CITIES.filter((c) => new RegExp(`\\b${c}\\b`, "i").test(text));
+  const others = otherCities.filter((c) => new RegExp(`\\b${c}\\b`, "i").test(text));
   if (others.length > 0) {
     return { row, verdict: "ok-other-city-only", detail: others.slice(0, 3).join(", ") };
   }
@@ -121,9 +122,15 @@ async function main() {
     process.exit(1);
   }
 
-  // Pulled out as a plain string: the closure below loses the
-  // post-guard narrowing on `city` itself.
+  // Pulled out as plain values: the closure below loses the post-guard
+  // narrowing on `city` itself. "Bangalore" confirms Bengaluru just as
+  // well as "Bengaluru" does.
   const cityName = city.name;
+  const cityNames = [city.name, ...city.aliases];
+  const otherCities = [
+    ...OTHER_METROS,
+    ...cities.filter((c) => c.id !== city.id).flatMap((c) => [c.name, ...c.aliases]),
+  ].filter((name) => !cityNames.includes(name));
 
   const pool = getPool();
   const { rows } = await pool.query<Row>(
@@ -142,7 +149,7 @@ async function main() {
   async function worker() {
     while (next < rows.length) {
       const i = next++;
-      results[i] = await check(rows[i], cityName);
+      results[i] = await check(rows[i], cityNames, otherCities);
       if ((i + 1) % 100 === 0) console.log(`[verify]   ...${i + 1}/${rows.length}`);
     }
   }

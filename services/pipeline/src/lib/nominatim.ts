@@ -10,8 +10,18 @@ export type NominatimHit = {
   precision: "building" | "street";
 };
 
-export async function geocodeAddress(address: string): Promise<NominatimHit | null> {
-  const url = `${BASE_URL}/search?format=json&limit=1&q=${encodeURIComponent(address)}`;
+// `bbox` ([west, south, east, north]) bounds the search to one city, so a
+// bare locality like "Koramangala" or "Baner" can only resolve inside the
+// city it was filed under — never to a same-named place elsewhere.
+export async function geocodeAddress(
+  address: string,
+  bbox?: [number, number, number, number]
+): Promise<NominatimHit | null> {
+  let url = `${BASE_URL}/search?format=json&limit=1&countrycodes=in&q=${encodeURIComponent(address)}`;
+  if (bbox) {
+    const [west, south, east, north] = bbox;
+    url += `&viewbox=${west},${north},${east},${south}&bounded=1`;
+  }
   const res = await fetch(url, { headers: { "User-Agent": USER_AGENT } });
   if (!res.ok) {
     throw new Error(`Nominatim ${res.status} for "${address}"`);

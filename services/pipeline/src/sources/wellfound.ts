@@ -109,3 +109,10 @@ export function collectWellfoundPune(): Promise<RawRecord[]> {
 export function collectWellfoundMumbai(): Promise<RawRecord[]> {
   return collectWellfoundByLocation("mumbai");
 }
+
+// Wellfound's slug is the old name — /location/bengaluru just redirects
+// (303) to a generic page, /location/bangalore is the real one (verified:
+// 530 startups in its cache).
+export function collectWellfoundBengaluru(): Promise<RawRecord[]> {
+  return collectWellfoundByLocation("bangalore");
+}

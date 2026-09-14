@@ -21,17 +21,17 @@ on:
   workflow_dispatch:
     inputs:
       city:
-        description: "City to run discovery for (leave blank for both)"
+        description: "City to run discovery for (leave blank for all)"
         required: false
         type: choice
-        options: ["", "pune", "mumbai"]
+        options: ["", "pune", "bengaluru", "mumbai"]
 
 jobs:
   discovery:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        city: [pune, mumbai]
+        city: [pune, bengaluru, mumbai]
       fail-fast: false # a bad run for one city shouldn't cancel the other
     # No job-level `if:` here — the `matrix` context isn't available at
     # that point (GitHub Actions only exposes it inside steps), confirmed

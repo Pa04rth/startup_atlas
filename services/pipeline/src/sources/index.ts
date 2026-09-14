@@ -1,7 +1,7 @@
 import type { RawRecord } from "../types";
 import { collectVentureCenterPortfolio } from "./incubators";
-import { collectWellfoundPune, collectWellfoundMumbai } from "./wellfound";
-import { collectInc42PuneFundedList } from "./inc42";
+import { collectWellfoundPune, collectWellfoundMumbai, collectWellfoundBengaluru } from "./wellfound";
+import { collectInc42PuneFundedList, collectInc42BengaluruFundedList } from "./inc42";
 
 export type Collector = {
   name: string;
@@ -21,6 +21,8 @@ export const collectors: Collector[] = [
   { name: "wellfound", cities: ["pune"], run: collectWellfoundPune },
   { name: "wellfound-mumbai", cities: ["mumbai"], run: collectWellfoundMumbai },
   { name: "inc42", cities: ["pune"], run: collectInc42PuneFundedList },
+  { name: "wellfound-bengaluru", cities: ["bengaluru"], run: collectWellfoundBengaluru },
+  { name: "inc42-bengaluru", cities: ["bengaluru"], run: collectInc42BengaluruFundedList },
 ];
 
 export function collectorsForCity(cityId: string): Collector[] {

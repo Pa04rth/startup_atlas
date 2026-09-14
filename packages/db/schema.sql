@@ -8,7 +8,7 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- reference ------------------------------------------------------
 CREATE TABLE cities (
-  id TEXT PRIMARY KEY,                 -- 'pune','mumbai'
+  id TEXT PRIMARY KEY,                 -- 'pune','bengaluru','mumbai'
   name TEXT NOT NULL, state TEXT NOT NULL DEFAULT 'Maharashtra',
   center_lat DOUBLE PRECISION, center_lng DOUBLE PRECISION,
   bbox geometry(Polygon,4326), default_zoom INT DEFAULT 12,

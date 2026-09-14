@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
-import { cities } from "@startup-atlas/config";
+import { cities, formatCityNames } from "@startup-atlas/config";
 import { ClassicalShell } from "@/components/landing/ClassicalShell";
 
 export const metadata: Metadata = {
   title: "Coming soon — Startup Atlas",
-  description: "More cities are being mapped. Pune and Mumbai are live today.",
+  description: `More cities are being mapped. ${formatCityNames()} are live today.`,
 };
 
 // Where the landing page's "Next →" goes (DiptychHero's ChooseCityCard).
@@ -52,7 +52,7 @@ export default function ComingSoonPage() {
           </h1>
 
           <p className="mt-4 text-[13px] leading-relaxed text-[var(--color-neutral-700)] md:text-sm">
-            {cities.map((c) => c.name).join(" and ")} are live today. The rest of India&apos;s startup
+            {formatCityNames()} are live today. The rest of India&apos;s startup
             cities are on the way — sourced, dated, and precision-labelled the same way, one city at
             a time.
           </p>

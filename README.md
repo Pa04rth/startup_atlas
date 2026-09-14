@@ -4,7 +4,7 @@
 
 **A city-by-city map of startups: where they are, who's hiring, and what's happening, with every fact sourced.**
 
-Starting with **Pune** and **Mumbai**, built to scale to any city.
+Starting with **Pune**, **Bengaluru** and **Mumbai**, built to scale to any city.
 
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Node](https://img.shields.io/badge/node-%E2%89%A520-339933?logo=node.js&logoColor=white)

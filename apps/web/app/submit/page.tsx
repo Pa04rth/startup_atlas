@@ -1,4 +1,5 @@
 import { getAreasByCity } from "@startup-atlas/db";
+import { formatCityNames } from "@startup-atlas/config";
 import { ClassicalShell } from "@/components/landing/ClassicalShell";
 import { MonumentSymbols } from "@/components/landing/MonumentSymbols";
 import { MonumentWatermark } from "@/components/landing/MonumentWatermark";
@@ -10,8 +11,8 @@ export const metadata = { title: "Submit a company — Startup Atlas" };
 const FEATURES = [
   {
     icon: "ic-pin",
-    title: "For Pune and Mumbai",
-    description: "A focused directory of companies with roots in both cities.",
+    title: `For ${formatCityNames()}`,
+    description: "A focused directory of companies with roots in these cities.",
   },
   {
     icon: "ic-check",
@@ -70,8 +71,8 @@ export default async function SubmitPage() {
               className="mt-3 max-w-[340px] text-[13px] leading-relaxed sm:mt-4 sm:text-[15px]"
               style={{ color: "var(--color-neutral-700)" }}
             >
-              Help build a more useful, more local view of the people making things in Pune and
-              Mumbai.
+              Help build a more useful, more local view of the people making things in{" "}
+              {formatCityNames()}.
             </p>
 
             <div

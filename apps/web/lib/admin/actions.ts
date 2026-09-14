@@ -3,7 +3,7 @@
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { cities } from "@startup-atlas/config";
+import { cities, type CityId } from "@startup-atlas/config";
 import {
   setBrandStatus,
   setBrandStatusBulk,
@@ -276,7 +276,7 @@ export async function setReferralRequestState(id: number, status: ReferralReques
 // from within the request. Needs a GH_ACTIONS_TOKEN env var (a PAT with
 // "Actions: write" on this repo) — without it this throws, which the page
 // surfaces as an error rather than silently doing nothing.
-export async function triggerIngest(city: "" | "pune" | "mumbai") {
+export async function triggerIngest(city: "" | CityId) {
   await requireAdmin();
   const token = process.env.GH_ACTIONS_TOKEN;
   if (!token) {

@@ -29,7 +29,7 @@ async function main() {
   }
 
   console.log(`[aggregator-jobs] fetching listings for ${city.name}...`);
-  const result = await refreshAggregatorJobs(city.id, city.name);
+  const result = await refreshAggregatorJobs(city.id, city.jobsLocation ?? city.name);
 
   console.log(
     `[aggregator-jobs] done: fetched=${result.fetched} ` +

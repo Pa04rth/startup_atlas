@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { cities } from "@startup-atlas/config";
+import { cities, formatCityNames } from "@startup-atlas/config";
 import { getBrandBySlug } from "@startup-atlas/db";
 import { ClassicalShell } from "@/components/landing/ClassicalShell";
 import { MonumentSymbols } from "@/components/landing/MonumentSymbols";
@@ -72,7 +72,7 @@ export default async function ManageCompanyPage({ params }: { params: Promise<Pa
               style={{ color: "var(--color-neutral-700)" }}
             >
               Updates are reviewed before they appear publicly, so the atlas stays useful for
-              everyone exploring Pune and Mumbai.
+              everyone exploring {formatCityNames()}.
             </p>
 
             <div className="mt-6 hidden flex-col gap-4 lg:flex">

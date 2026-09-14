@@ -6,6 +6,16 @@ import type { StyleSpecification } from "maplibre-gl";
 // Font glyphs are the one remaining external call — self-hosting glyph PBFs
 // is a separate, smaller task; this is a free, public, widely-used endpoint
 // (not tied to map data/traffic) and easy to swap out later.
+// NEXT_PUBLIC_MAPTILES_URL is the full URL of maharashtra.pmtiles; every
+// other tileset is expected next to it in the same bucket/folder, named
+// `<tileset>.pmtiles` (e.g. .../bengaluru.pmtiles). Unset stays unset — no
+// silent fallback to a local file that won't exist in production.
+export function getTilesUrl(tileset: string): string {
+  const url = process.env.NEXT_PUBLIC_MAPTILES_URL ?? "";
+  if (!url) return "";
+  return url.replace(/[^/?#]+\.pmtiles(?=([?#].*)?$)/, `${tileset}.pmtiles`);
+}
+
 export function getStyle(pmtilesUrl: string): StyleSpecification {
   return {
     version: 8,

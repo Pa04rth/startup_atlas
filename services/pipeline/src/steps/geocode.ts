@@ -15,7 +15,7 @@ export async function geocode(records: NormalizedRecord[], cityId: string): Prom
 
   for (const record of records) {
     if (record.address) {
-      const hit = await geocodeAddress(record.address);
+      const hit = await geocodeAddress(record.address, city.bbox);
       await new Promise((resolve) => setTimeout(resolve, NOMINATIM_DELAY_MS));
 
       if (hit) {

@@ -1,3 +1,5 @@
+import type { CityId } from "@startup-atlas/config";
+
 // Large, faded monument line-art sitting behind a form page's hero copy —
 // same <symbol> defs as the homepage (MonumentSymbols must be rendered
 // once somewhere on the page), just referenced at a bigger size and low
@@ -16,7 +18,7 @@ export function MonumentWatermark({
   color = "var(--color-accent-300)",
   opacity = 0.8,
 }: {
-  city: "pune" | "mumbai";
+  city: CityId;
   className?: string;
   color?: string;
   opacity?: number;

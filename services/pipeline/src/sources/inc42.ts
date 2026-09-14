@@ -10,13 +10,25 @@
 import * as cheerio from "cheerio";
 import type { RawRecord } from "../types";
 
-const LIST_URL = "https://inc42.com/lists/top-30-funded-startups-in-pune-2026/";
 const SOURCE_NAME = "inc42";
 
-export async function collectInc42PuneFundedList(): Promise<RawRecord[]> {
-  const res = await fetch(LIST_URL, { headers: { "User-Agent": "Mozilla/5.0 (compatible; startup-atlas/0.1)" } });
+// Same page template for every city (verified against the live Bengaluru
+// list too — same .company-list-profile markup), only the slug differs.
+const PUNE_LIST_URL = "https://inc42.com/lists/top-30-funded-startups-in-pune-2026/";
+const BENGALURU_LIST_URL = "https://inc42.com/lists/top-30-funded-startups-in-bengaluru-2026/";
+
+export function collectInc42PuneFundedList(): Promise<RawRecord[]> {
+  return collectInc42List(PUNE_LIST_URL);
+}
+
+export function collectInc42BengaluruFundedList(): Promise<RawRecord[]> {
+  return collectInc42List(BENGALURU_LIST_URL);
+}
+
+async function collectInc42List(listUrl: string): Promise<RawRecord[]> {
+  const res = await fetch(listUrl, { headers: { "User-Agent": "Mozilla/5.0 (compatible; startup-atlas/0.1)" } });
   if (!res.ok) {
-    throw new Error(`fetch ${LIST_URL} -> ${res.status}`);
+    throw new Error(`fetch ${listUrl} -> ${res.status}`);
   }
 
   const html = await res.text();
@@ -52,7 +64,7 @@ export async function collectInc42PuneFundedList(): Promise<RawRecord[]> {
       logoUrl: logoUrl || undefined,
       sector,
       foundedYear,
-      sourceUrl: LIST_URL,
+      sourceUrl: listUrl,
       sourceName: SOURCE_NAME,
     });
   });

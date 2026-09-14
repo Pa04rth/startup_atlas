@@ -23,7 +23,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        city: [pune, mumbai]
+        city: [pune, bengaluru, mumbai]
       fail-fast: false # a bad run for one city shouldn't cancel the other
     steps:
       - uses: actions/checkout@v4

@@ -6,7 +6,7 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import { Protocol } from "pmtiles";
 import type { CityConfig } from "@startup-atlas/config";
 import type { BrandListItem } from "@startup-atlas/db";
-import { getStyle } from "@/lib/map/style";
+import { getStyle, getTilesUrl } from "@/lib/map/style";
 import { colorFor } from "@/lib/avatarColor";
 
 const PRECISE = new Set(["exact", "building", "street"]);
@@ -271,8 +271,9 @@ export function MapView({
     // to the copy under public/tiles/, served by Next's own dev server.
     // Either way MapLibre reads tile byte-ranges directly out of the file
     // via the pmtiles:// protocol registered above — no tile server process.
-    const pmtilesUrl = process.env.NEXT_PUBLIC_MAPTILES_URL ?? "";
-    // process.env.NEXT_PUBLIC_MAPTILES_URL || `${window.location.origin}/tiles/maharashtra.pmtiles`;
+    // Each city names its tileset (packages/config cities.ts) — Pune and
+    // Mumbai share maharashtra.pmtiles, Bengaluru has its own file.
+    const pmtilesUrl = getTilesUrl(city.tileset);
 
     let map: maplibregl.Map;
     try {

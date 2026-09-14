@@ -168,3 +168,30 @@
 .classical-theme .ink-draw {
   animation: classical-ink 1.7s ease-out 0.25s both;
 }
+
+/* Landing page change (DiptychHero's Next / Back / swipe) — each half is
+   remounted per page, so this plays once per change. --diptych-from is
+   +24px going forward and -24px going back. */
+@keyframes classical-page-in {
+  from {
+    opacity: 0;
+    transform: translateX(var(--diptych-from, 24px));
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.classical-theme .diptych-enter {
+  animation: classical-page-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .classical-theme .diptych-enter {
+    animation: none;
+  }
+  .classical-theme .ink-draw {
+    animation: none;
+  }
+}

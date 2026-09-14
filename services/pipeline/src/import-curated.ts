@@ -1,5 +1,7 @@
-// One-off bulk import of the hand-curated, pre-verified Pune/Mumbai dataset
-// (packages/db/seed/curated/pune-mumbai-curated.xlsx).
+// Bulk import of a hand-curated, pre-verified company list — the original
+// Pune/Mumbai dataset (packages/db/seed/curated/pune-mumbai-curated.xlsx) by
+// default, or any other .xlsx/.csv with the same columns via --file (see
+// packages/db/seed/curated/TEMPLATE.csv — e.g. a Bengaluru list).
 //
 // This deliberately BYPASSES the scrape pipeline's geocode/enrich/score
 // steps: every row already carries researched coordinates, a stated
@@ -12,17 +14,27 @@
 //
 //   pnpm --filter services-pipeline import-curated
 //   pnpm --filter services-pipeline import-curated -- --dry-run
+//   pnpm --filter services-pipeline import-curated -- --file=../../packages/db/seed/curated/bengaluru.csv --dry-run
+//
+// The `city` column accepts any city name or alias from packages/config
+// ("Bangalore, India" -> bengaluru). Rows whose coordinates fall outside
+// that city's bbox are imported as given but listed for a human to check.
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import ExcelJS from "exceljs";
 import { getPool } from "@startup-atlas/db";
+import { cities, isInsideCityBbox, matchCityId, type CityId } from "@startup-atlas/config";
 import { slugify } from "@startup-atlas/core";
 import type { LocPrecision } from "@startup-atlas/core";
 import { withRetry } from "./lib/retry";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const WORKBOOK = path.resolve(__dirname, "../../../packages/db/seed/curated/pune-mumbai-curated.xlsx");
-const SHEET = "All Organizations";
+const fileArg = process.argv.find((a) => a.startsWith("--file="))?.slice("--file=".length);
+const sheetArg = process.argv.find((a) => a.startsWith("--sheet="))?.slice("--sheet=".length);
+const WORKBOOK = fileArg
+  ? path.resolve(process.cwd(), fileArg)
+  : path.resolve(__dirname, "../../../packages/db/seed/curated/pune-mumbai-curated.xlsx");
+const SHEET = sheetArg ?? "All Organizations";
 const DRY_RUN = process.argv.includes("--dry-run");
 
 // The sheet uses the literal string "Not available" as its blank marker.
@@ -34,6 +46,8 @@ const BLANK = "not available";
 
 function text(v: ExcelJS.CellValue): string | null {
   if (v === null || v === undefined) return null;
+  // CSV/xlsx date cells (researched_at) come back as Date objects.
+  if (v instanceof Date) return Number.isNaN(v.getTime()) ? null : v.toISOString();
   // A cell holding a hyperlink/formula comes back as an object, not a string.
   const raw =
     typeof v === "object" && v !== null && "text" in v
@@ -51,16 +65,6 @@ function num(v: ExcelJS.CellValue): number | null {
   if (s === null) return null;
   const n = Number(s.replace(/,/g, ""));
   return Number.isFinite(n) ? n : null;
-}
-
-// 'Mumbai, India' and 'Navi Mumbai' both belong to the mumbai city page;
-// the finer locality survives in offices.area.
-function cityId(raw: string | null): "pune" | "mumbai" | null {
-  if (!raw) return null;
-  const s = raw.toLowerCase();
-  if (s.includes("pune")) return "pune";
-  if (s.includes("mumbai")) return "mumbai";
-  return null;
 }
 
 function kind(raw: string | null): "startup" | "vc" | "mnc" {
@@ -89,7 +93,7 @@ function domainOf(website: string | null): string | null {
 
 type Row = {
   recordId: string;
-  city: "pune" | "mumbai";
+  city: CityId;
   slug: string;
   name: string;
   kind: "startup" | "vc" | "mnc";
@@ -120,14 +124,21 @@ function scoreFor(confidence: string | null): number {
   return (confidence ?? "").toLowerCase() === "high" ? 90 : 78;
 }
 
-async function readRows(): Promise<{ rows: Row[]; skipped: string[] }> {
+async function readRows(): Promise<{ rows: Row[]; skipped: string[]; outsideCity: string[] }> {
   const wb = new ExcelJS.Workbook();
-  await wb.xlsx.readFile(WORKBOOK);
-  const ws = wb.getWorksheet(SHEET);
+  // A CSV has exactly one sheet, whatever it's called.
+  const isCsv = WORKBOOK.toLowerCase().endsWith(".csv");
+  let ws: ExcelJS.Worksheet | undefined;
+  if (isCsv) {
+    ws = await wb.csv.readFile(WORKBOOK);
+  } else {
+    await wb.xlsx.readFile(WORKBOOK);
+    ws = wb.getWorksheet(SHEET);
+  }
   if (!ws) throw new Error(`sheet "${SHEET}" not found in ${WORKBOOK}`);
 
   const header = new Map<string, number>();
-  ws.getRow(1).eachCell((cell, col) => header.set(String(cell.value).trim(), col));
+  ws.getRow(1).eachCell((cell, col) => header.set(String(cell.value).replace(/^\uFEFF/, "").trim(), col));
   const col = (r: ExcelJS.Row, name: string) => {
     const i = header.get(name);
     return i ? r.getCell(i).value : null;
@@ -135,6 +146,7 @@ async function readRows(): Promise<{ rows: Row[]; skipped: string[] }> {
 
   const rows: Row[] = [];
   const skipped: string[] = [];
+  const outsideCity: string[] = [];
   const seen = new Set<string>();
 
   ws.eachRow((r, i) => {
@@ -142,7 +154,9 @@ async function readRows(): Promise<{ rows: Row[]; skipped: string[] }> {
 
     const recordId = text(col(r, "record_id")) ?? `row-${i}`;
     const name = text(col(r, "name"));
-    const city = cityId(text(col(r, "city")));
+    // 'Mumbai, India' and 'Navi Mumbai' both belong to the mumbai city page,
+    // 'Bangalore' to bengaluru; the finer locality survives in offices.area.
+    const city = matchCityId(text(col(r, "city")));
     const lat = num(col(r, "latitude"));
     const lng = num(col(r, "longitude"));
 
@@ -160,6 +174,11 @@ async function readRows(): Promise<{ rows: Row[]; skipped: string[] }> {
       return;
     }
     seen.add(key);
+
+    const cityConfig = cities.find((c) => c.id === city);
+    if (cityConfig && !isInsideCityBbox(cityConfig, lat, lng)) {
+      outsideCity.push(`${recordId} ${name}: ${lat},${lng} is outside ${cityConfig.name}`);
+    }
 
     const website = text(col(r, "website"));
     rows.push({
@@ -190,7 +209,7 @@ async function readRows(): Promise<{ rows: Row[]; skipped: string[] }> {
     });
   });
 
-  return { rows, skipped };
+  return { rows, skipped, outsideCity };
 }
 
 async function importRow(pool: ReturnType<typeof getPool>, row: Row) {
@@ -275,7 +294,8 @@ async function importRow(pool: ReturnType<typeof getPool>, row: Row) {
 }
 
 async function main() {
-  const { rows, skipped } = await readRows();
+  console.log(`[import-curated] reading ${WORKBOOK}`);
+  const { rows, skipped, outsideCity } = await readRows();
 
   const byCity = rows.reduce<Record<string, number>>((acc, r) => {
     acc[r.city] = (acc[r.city] ?? 0) + 1;
@@ -286,6 +306,11 @@ async function main() {
     console.warn(`[import-curated] skipped ${skipped.length}:`);
     for (const s of skipped.slice(0, 20)) console.warn(`  - ${s}`);
     if (skipped.length > 20) console.warn(`  ... and ${skipped.length - 20} more`);
+  }
+  if (outsideCity.length) {
+    console.warn(`[import-curated] ${outsideCity.length} rows have coordinates outside their city (imported as given — check them):`);
+    for (const s of outsideCity.slice(0, 20)) console.warn(`  - ${s}`);
+    if (outsideCity.length > 20) console.warn(`  ... and ${outsideCity.length - 20} more`);
   }
 
   if (DRY_RUN) {

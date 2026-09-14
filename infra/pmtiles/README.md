@@ -1,4 +1,4 @@
-# Self-hosted PMTiles — Pune + Mumbai
+# Self-hosted PMTiles — Pune, Mumbai, Bengaluru
 
 How `apps/web/public/tiles/maharashtra.pmtiles` gets built, and how to rebuild it (new bounds,
 newer OSM data, or after Planetiler releases an update).
@@ -78,13 +78,32 @@ in western India, no new download needed. Keep the bbox as tight as your actual 
 every extra degree makes the output bigger and slower to build, with no benefit if nothing's
 rendered there.
 
+## Bengaluru — `bengaluru.pmtiles`
+
+Bengaluru isn't in the western-zone extract, so it gets its own file. Each city names its file in
+`packages/config/src/cities.ts` (`tileset`), and `getTilesUrl()` in `apps/web/lib/map/style.ts`
+loads `<tileset>.pmtiles` from the same folder as `NEXT_PUBLIC_MAPTILES_URL`.
+
+```bash
+cd infra/pmtiles/build
+
+# Southern-zone covers Karnataka (~560MB)
+curl -sL -o southern-zone.osm.pbf "https://download.geofabrik.de/asia/india/southern-zone-latest.osm.pbf"
+
+# Bounded to the Bengaluru metro (same bbox as packages/config's bengaluru entry)
+./jdk21/jdk-21.0.12.1+1/bin/java.exe -Xmx3g -jar planetiler.jar   --osm-path=southern-zone.osm.pbf   --output=../../../apps/web/public/tiles/bengaluru.pmtiles   --bounds=77.3,12.7,77.95,13.3   --force
+```
+
+A new city follows the same pattern: add a `tileset` value to `CityConfig`, build
+`<tileset>.pmtiles` from whichever Geofabrik zone contains it, upload it next to the others.
+
 ## Production hosting
 
-A 38MB (and growing, as coverage expands) binary doesn't belong in a Vercel deployment bundle or
-in git. Move it to **Cloudflare R2** (CLAUDE.md's designated object storage) or S3 — anything that
-serves static files with HTTP range-request support, which is all PMTiles needs. Update the
-`pmtilesUrl` computation in `MapView.tsx` (currently `${window.location.origin}/tiles/...`) to
-point at the R2/S3 URL instead. No other code changes — the `pmtiles://` protocol handler and the
+These 38MB+ (and growing, as coverage expands) binaries don't belong in a Vercel deployment bundle or
+in git. Move them to **Cloudflare R2** (CLAUDE.md's designated object storage) or S3 — anything that
+serves static files with HTTP range-request support, which is all PMTiles needs. Set
+`NEXT_PUBLIC_MAPTILES_URL` to the R2/S3 URL of `maharashtra.pmtiles` and upload every other
+tileset (`bengaluru.pmtiles`, …) into the same folder. No other code changes — the `pmtiles://` protocol handler and the
 style don't care where the bytes come from.
 
 ## Updating the style

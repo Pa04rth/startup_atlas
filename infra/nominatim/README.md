@@ -19,14 +19,15 @@ cd infra/nominatim
 docker compose up -d
 ```
 
-First import takes roughly 30-90 minutes for the Maharashtra extract
-(depends on host CPU/disk) — it's importing and indexing real OSM data, not
+First import takes a few hours for the India extract, which covers Pune,
+Mumbai and Bengaluru (depends on host CPU/disk; budget ~40GB) — it's importing and indexing real OSM data, not
 just starting a server. Watch progress with `docker compose logs -f`.
 
 Once it's up, verify:
 
 ```bash
 curl "http://localhost:8080/search?q=Koregaon+Park,+Pune&format=json"
+curl "http://localhost:8080/search?q=Koramangala,+Bengaluru&format=json"
 ```
 
 ## Pointing the pipeline at it
@@ -47,7 +48,7 @@ which is a bigger step than running this for local backfills only.)
 
 ## Staying current
 
-`REPLICATION_URL` in `docker-compose.yml` points at Geofabrik's Maharashtra
+`REPLICATION_URL` in `docker-compose.yml` points at Geofabrik's India
 diff feed — the image's built-in `nominatim replication` tooling can apply
 these incrementally so the local data doesn't go stale. Not automated here;
 see the [mediagis/nominatim-docker docs](https://github.com/mediagis/nominatim-docker)
