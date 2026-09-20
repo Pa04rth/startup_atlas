@@ -6,7 +6,7 @@ import {
   getPageViewStats,
 } from "@startup-atlas/db";
 import { cardClass, mutedText, secondaryText, tableHeadClass, tableRowClass, StatusPill } from "./_theme";
-import { TrendLineChart } from "./_charts/TrendLineChart";
+import { MonthlyViewsChart } from "./_charts/MonthlyViewsChart";
 import { GroupedBarChart } from "./_charts/GroupedBarChart";
 
 function formatDay(iso: string): string {
@@ -20,7 +20,7 @@ export default async function AdminDashboardPage() {
     getRecentIngestionRuns(10),
     getSubmissions("pending"),
     getPendingVerifications(),
-    getPageViewStats(7),
+    getPageViewStats(), // all of it — first recorded view through today
   ]);
 
   const cards = [
@@ -28,10 +28,13 @@ export default async function AdminDashboardPage() {
     { label: "Published", value: statusCounts.published ?? 0, href: undefined },
     { label: "Pending submissions", value: submissions.length, href: "/admin/submissions" },
     { label: "Pending payments", value: payments.length, href: "/admin/payments" },
-    { label: "Page views (7d)", value: pageViews.totalViews, href: undefined },
+    { label: "Page views (all time)", value: pageViews.totalViews, href: undefined },
   ];
 
-  const pageViewSeries = pageViews.byDay.map((d) => ({ label: formatDay(d.day), value: d.count }));
+  const pageViewRange =
+    pageViews.byDay.length > 0
+      ? `${formatDay(pageViews.byDay[0].day)} – ${formatDay(pageViews.byDay[pageViews.byDay.length - 1].day)}`
+      : "no views recorded yet";
   const ingestionSeries = [...runs]
     .reverse()
     .map((r) => ({ label: `${r.city_id} ${formatDay(r.started_at)}`, a: r.found, b: r.upserted }));
@@ -65,9 +68,12 @@ export default async function AdminDashboardPage() {
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <div className={cardClass}>
-          <h2 className="text-[15px] font-semibold font-[family-name:var(--font-heading)]">Page views — last 7 days</h2>
+          <h2 className="text-[15px] font-semibold font-[family-name:var(--font-heading)]">Page views — by month</h2>
+          <p className={`mt-0.5 text-xs ${mutedText}`}>
+            {pageViews.totalViews.toLocaleString("en-IN")} all time · {pageViewRange}
+          </p>
           <div className="mt-4">
-            <TrendLineChart data={pageViewSeries} />
+            <MonthlyViewsChart data={pageViews.byDay} />
           </div>
         </div>
 
@@ -122,7 +128,7 @@ export default async function AdminDashboardPage() {
 
       {pageViews.topPaths.length > 0 && (
         <div>
-          <h2 className="text-[15px] font-semibold font-[family-name:var(--font-heading)]">Top pages (7d)</h2>
+          <h2 className="text-[15px] font-semibold font-[family-name:var(--font-heading)]">Top pages (all time)</h2>
           <div className={`mt-2 overflow-x-auto ${cardClass} !p-0`}>
             <table className="w-full text-left text-sm">
               <thead className={tableHeadClass}>

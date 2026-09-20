@@ -14,6 +14,15 @@ const cormorant = Cormorant_Garamond({
 });
 const lora = Lora({ subsets: ["latin"], weight: ["400", "500"], variable: "--font-body" });
 
+// Every admin page reads live operational state — the review queue, pending
+// submissions and payments, ingestion runs, page views. None of it may come
+// from a build-time render: these pages use no dynamic API of their own (auth
+// is checked in middleware.ts, not here), so Next would otherwise statically
+// render them once at build and serve that same HTML forever. That is exactly
+// what froze the dashboard's "last 7 days" chart on its build date. Set on the
+// layout so it covers every route in the panel, not just the dashboard.
+export const dynamic = "force-dynamic";
+
 export default function AdminPanelLayout({ children }: { children: ReactNode }) {
   return (
     <div

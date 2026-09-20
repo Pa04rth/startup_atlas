@@ -259,19 +259,45 @@ export async function insertPageView(input: {
   ]);
 }
 
-export async function getPageViewStats(days = 7): Promise<{ totalViews: number; byDay: Array<{ day: string; count: number }>; topPaths: Array<{ path: string; count: number }> }> {
+// `days = null` (the admin dashboard's default) means all of it, first
+// recorded view through today; a number keeps only that many trailing days.
+// Days are whole UTC dates, the same basis page_views.day is written on.
+const PAGE_VIEW_WINDOW = `($1::int is null or created_at > now() - ($1::int || ' days')::interval)`;
+
+export async function getPageViewStats(days: number | null = null): Promise<{
+  totalViews: number;
+  byDay: Array<{ day: string; count: number }>;
+  topPaths: Array<{ path: string; count: number }>;
+}> {
   const pool = getPool();
   const [totalResult, byDayResult, topPathsResult] = await Promise.all([
-    pool.query(`select count(*)::int as total from page_views where created_at > now() - ($1 || ' days')::interval`, [days]),
+    pool.query(`select count(*)::int as total from page_views where ${PAGE_VIEW_WINDOW}`, [days]),
+    // generate_series + left join, so a day with no views is a real zero in
+    // the series instead of a missing point — without it the trend line
+    // joins across gaps and silently compresses quiet stretches, which
+    // reads as "traffic was steady" when it was actually nothing at all.
     pool.query(
-      `select day::text, count(*)::int as count from page_views
-       where created_at > now() - ($1 || ' days')::interval
-       group by day order by day asc`,
+      `with counted as (
+         select day, count(*)::int as count from page_views
+         where ${PAGE_VIEW_WINDOW}
+         group by day
+       ),
+       span as (
+         select case
+                  when $1::int is null then coalesce((select min(day) from counted), current_date)
+                  else current_date - ($1::int - 1)
+                end as first_day
+       )
+       select gs::date::text as day, coalesce(counted.count, 0)::int as count
+       from span
+       cross join generate_series(span.first_day::timestamp, current_date::timestamp, interval '1 day') as gs
+       left join counted on counted.day = gs::date
+       order by gs asc`,
       [days]
     ),
     pool.query(
       `select path, count(*)::int as count from page_views
-       where created_at > now() - ($1 || ' days')::interval
+       where ${PAGE_VIEW_WINDOW}
        group by path order by count desc limit 10`,
       [days]
     ),
