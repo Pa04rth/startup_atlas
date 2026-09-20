@@ -37,6 +37,7 @@ import type { LocPrecision } from "@startup-atlas/core";
 import { inferSeniority, inferTrack } from "./lib/job_classify";
 import { isWalkinTitle } from "./lib/walkin";
 import { withRetry } from "./lib/retry";
+import { eachConcurrent } from "./lib/concurrency";
 
 const BASE_URL = "https://www.bangalorestartupmap.com";
 const SOURCE_NAME = "bangalorestartupmap";
@@ -369,18 +370,6 @@ async function importNews(pool: Pool, news: SourceNews[], brandIdsBySourceSlug: 
     }
   }
   return linked;
-}
-
-async function eachConcurrent<T>(items: T[], concurrency: number, fn: (item: T, index: number) => Promise<void>) {
-  let next = 0;
-  await Promise.all(
-    Array.from({ length: Math.min(concurrency, items.length) }, async () => {
-      while (next < items.length) {
-        const i = next++;
-        await fn(items[i], i);
-      }
-    })
-  );
 }
 
 // ---- main --------------------------------------------------------------

@@ -13,6 +13,7 @@
     "cache-logos": "tsx --env-file-if-exists=../../.env src/cache-logos.ts",
     "import-curated": "tsx --env-file-if-exists=../../.env src/import-curated.ts",
     "import-bsm": "tsx --env-file-if-exists=../../.env src/import-bangalorestartupmap.ts",
+    "verify-bengaluru": "tsx --env-file-if-exists=../../.env src/verify-bengaluru.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
